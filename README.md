@@ -1,6 +1,6 @@
 # ExpertRelay
 
-Predictive expert prefetching for distributed Mixture-of-Experts (MoE) inference across weak, low-cost hardware clusters.
+Predictive expert prefetching for distributed Mixture-of-Experts (MoE) inference across weak, low-cost hardware clusters, built on MindSpore.
 
 ## The problem
 
@@ -14,9 +14,13 @@ Predict which expert the next token is likely to need before the router official
 
 Turns "buy one expensive AI accelerator" into "network a few cheap machines you already own" — with the scheduling smart enough to make that actually fast. Benefits cost-constrained institutions (schools, clinics, small labs), privacy-sensitive users who need fully local inference, and the existing mini-PC clustering community (Strix Halo, Atlas boards) that's already doing this manually with cruder tooling.
 
+## Built with
+
+MindSpore (core framework), MindSpore Lite (on-device/edge deployment target), targeting Huawei Ascend NPU hardware (Atlas 200I DK A2) alongside generic multi-device clusters for comparison.
+
 ## Status
 
-Early development — targeting a working benchmark comparing predictive prefetching vs. naive on-demand loading across a real multi-device split, on both Huawei hardware (Atlas 200I DK A2 / Ascend NPU) and a generic cluster (e.g. consumer mini PCs).
+Early development — targeting a working benchmark comparing predictive prefetching vs. naive on-demand loading across a real multi-device split.
 
 ## Structure
 
