@@ -6,3 +6,9 @@ node_modules/
 .env
 *.log
 .DS_Store
+
+# downloaded/converted model weights -- regenerable via src/moe_convert,
+# too large and too derived to belong in git history
+models/
+*.ckpt
+*.safetensors
