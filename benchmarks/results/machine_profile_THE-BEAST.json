@@ -1,0 +1,145 @@
+[
+  {
+    "label": "machine profile",
+    "timestamp": "2026-09-25T06:23:24Z",
+    "git_commit": "fb084d174cf7539490cf43da2af95acc050be4b1",
+    "git_dirty": true,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 2035322880
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 112361025536
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "disk_read": {
+        "method": "win32 FILE_FLAG_NO_BUFFERING (write + read), page-aligned buffers",
+        "test_file_bytes": 1073741824,
+        "repeats": 3,
+        "seed": 0,
+        "results": [
+          {
+            "pattern": "sequential",
+            "chunk_bytes": 8650752,
+            "reads_per_run": 124,
+            "bytes_per_run": 1072693248,
+            "seconds_per_run": [
+              0.25325579999480397,
+              0.25008769996929914,
+              0.2494237000355497
+            ],
+            "mb_per_s_per_run": [
+              4235.611772847881,
+              4289.268317201063,
+              4300.686934910804
+            ],
+            "median_mb_per_s": 4289.268317201063,
+            "device_bytes_read_per_run": [
+              1072824320,
+              1072910336,
+              1072693248
+            ],
+            "cache_bypass_verified": true
+          },
+          {
+            "pattern": "random",
+            "chunk_bytes": 8650752,
+            "reads_per_run": 124,
+            "bytes_per_run": 1072693248,
+            "seconds_per_run": [
+              0.2584319000598043,
+              0.2585143999895081,
+              0.26106769999023527
+            ],
+            "mb_per_s_per_run": [
+              4150.77723667924,
+              4149.452595459037,
+              4108.870028885695
+            ],
+            "median_mb_per_s": 4149.452595459037,
+            "device_bytes_read_per_run": [
+              1072693248,
+              1072693248,
+              1072693248
+            ],
+            "cache_bypass_verified": true
+          },
+          {
+            "pattern": "sequential",
+            "chunk_bytes": 17301504,
+            "reads_per_run": 62,
+            "bytes_per_run": 1072693248,
+            "seconds_per_run": [
+              0.2571689001051709,
+              0.2467032999265939,
+              0.2465426999842748
+            ],
+            "mb_per_s_per_run": [
+              4171.1624055681505,
+              4348.110658913674,
+              4350.943053955439
+            ],
+            "median_mb_per_s": 4348.110658913674,
+            "device_bytes_read_per_run": [
+              1072693248,
+              1072693248,
+              1072693248
+            ],
+            "cache_bypass_verified": true
+          },
+          {
+            "pattern": "random",
+            "chunk_bytes": 17301504,
+            "reads_per_run": 62,
+            "bytes_per_run": 1072693248,
+            "seconds_per_run": [
+              0.23886929999571294,
+              0.24478329997509718,
+              0.25278460001572967
+            ],
+            "mb_per_s_per_run": [
+              4490.712067307319,
+              4382.215813370967,
+              4243.507112115418
+            ],
+            "median_mb_per_s": 4382.215813370967,
+            "device_bytes_read_per_run": [
+              1072693248,
+              1072693248,
+              1072693248
+            ],
+            "cache_bypass_verified": true
+          }
+        ]
+      }
+    },
+    "seed": 0,
+    "model": null,
+    "config": {
+      "measure_disk": true,
+      "test_file_bytes": 1073741824,
+      "repeats": 3,
+      "chunk_sizes": [
+        8650752,
+        17301504
+      ]
+    },
+    "peak_rss_mb": 412.741632
+  }
+]

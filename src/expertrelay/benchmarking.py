@@ -5,21 +5,28 @@ benchmarks/results/, including the git commit hash, a machine profile,
 model/config, seed, and timestamp -- see CLAUDE.md's benchmarking rule.
 This module is the one place that assembles that common metadata, so each
 benchmark script doesn't re-implement (and inevitably drift from) it.
+
+Machine facts come only from expertrelay.manager.profile. base_record takes
+the profile as a required argument instead of importing and calling that
+module itself: the profile CLI uses base_record to save its own results, so
+importing in both directions would be a circular import. The type-only
+import below gives us the type check without the runtime cycle.
 """
 
 from __future__ import annotations
 
 import json
-import platform
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import mindspore as ms
 import psutil
 
 from expertrelay import REPO_ROOT
+
+if TYPE_CHECKING:
+    from expertrelay.manager.profile import MachineProfile
 
 
 def git_commit_hash() -> str | None:
@@ -58,18 +65,6 @@ def git_is_dirty() -> bool | None:
         return None
 
 
-def machine_profile() -> dict:
-    """Enough about the machine to explain why a number differs from another run."""
-    vm = psutil.virtual_memory()
-    return {
-        "platform": platform.platform(),
-        "python_version": platform.python_version(),
-        "mindspore_version": ms.__version__,
-        "cpu_count_logical": psutil.cpu_count(logical=True),
-        "total_ram_gb": round(vm.total / 1e9, 2),
-    }
-
-
 def peak_process_rss_mb() -> float:
     """Peak memory used by the CURRENT process so far, in MB.
 
@@ -95,14 +90,26 @@ def append_benchmark_record(path: Path, record: dict) -> None:
     path.write_text(json.dumps(existing, indent=2))
 
 
-def base_record(*, label: str, seed: int, model: dict, config: dict, **extra: Any) -> dict:
-    """Assemble the fields every benchmark record must carry, per CLAUDE.md."""
+def base_record(
+    *,
+    label: str,
+    seed: int,
+    model: dict | None,
+    config: dict,
+    machine: MachineProfile,
+    **extra: Any,
+) -> dict:
+    """Assemble the fields every benchmark record must carry, per CLAUDE.md.
+
+    `model` is None only for benchmarks that don't involve a model (e.g. the
+    machine profile's own disk-speed test).
+    """
     record = {
         "label": label,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "git_commit": git_commit_hash(),
         "git_dirty": git_is_dirty(),
-        "machine": machine_profile(),
+        "machine": machine.to_dict(),
         "seed": seed,
         "model": model,
         "config": config,

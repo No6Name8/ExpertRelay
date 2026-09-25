@@ -27,6 +27,7 @@ import numpy as np
 import tokenizers
 
 from expertrelay.benchmarking import append_benchmark_record, base_record, peak_process_rss_mb
+from expertrelay.manager.profile import collect_machine_profile
 from expertrelay.memory_budget import enforce_ram_budget
 from expertrelay.paths import DEFAULT_MODEL_DIR
 from expertrelay.runtime.moe_model import ReducedQwenMoe
@@ -151,6 +152,7 @@ def main() -> None:
             seed=args.seed,
             model={"source_repo": manifest["source_repo"], "revision": manifest["revision"]},
             config=manifest["config"],
+            machine=collect_machine_profile(measure_disk=False),
             prompt=args.prompt,
             new_tokens=new_tokens,
             elapsed_seconds=elapsed,

@@ -124,6 +124,38 @@ memory-heavy step, not on measured peak RSS after the fact — the latter is
 `expertrelay.benchmarking.peak_process_rss_mb`, recorded in every benchmark
 record but not itself a gate.
 
+## Machine profile (`expertrelay.manager.profile`)
+
+- **Windows-only for the hardware-specific parts.** CPU model (registry),
+  drive model/bus/media type (PowerShell `Get-Disk`/`Get-PhysicalDisk`), and
+  the uncached disk-read test (Win32 `FILE_FLAG_NO_BUFFERING` via ctypes)
+  are implemented for Windows only. On other platforms the descriptive
+  fields are `None` (unknown, never guessed) and the disk-read test raises
+  `NotImplementedError`. RAM, core counts, free space and software versions
+  are portable (psutil / stdlib). Porting the read test to Linux (`O_DIRECT`)
+  is needed before profiling a Linux device such as an Atlas board.
+- **Windows file cache: bypassed, and verified per run.** Every timed run
+  records the OS physical-disk read counters and is marked
+  `cache_bypass_verified` only if the device served at least the bytes the
+  run requested. A one-off control on the dev machine read a 536 MB file
+  twice: the cached pass registered 0 MB of device reads, the
+  `NO_BUFFERING` pass registered exactly 536.3 MB.
+- **SSD-internal caching: NOT bypassed.** The test file is written right
+  before it's read, so it most likely sits in the drive's SLC write cache.
+  That can read faster than data that has aged into TLC/QLC NAND. Treat the
+  numbers as an upper bound for loading cold experts that have sat on disk
+  for a while. Getting around this means writing past the SLC cache (often
+  tens of GB) on every profile run, which isn't worth the time or the SSD
+  wear.
+- **"Random" means large reads at random offsets**, one expert-sized chunk
+  (8.65 or 17.30 MB) at a random 4 KiB-aligned offset. That's the realistic
+  pattern for loading one expert. It is not a 4K random-IOPS test, and the
+  two numbers shouldn't be compared.
+- **Single-threaded, queue depth 1.** Reads are synchronous, one at a time.
+  NVMe drives can go faster with several requests in flight, so this is a
+  lower bound on what an async/multi-queue loader could get. It is also the
+  correct baseline for today's one-expert-at-a-time `MoELayer`.
+
 ## Benchmarks
 
 See `benchmarks/README.md` for per-file caveats. The short version: current

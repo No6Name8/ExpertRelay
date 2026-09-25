@@ -13,6 +13,10 @@ models/
 *.ckpt
 *.safetensors
 
+# disk-speed probe file from expertrelay.manager.profile; always deleted in a
+# finally block, ignored only in case the process is hard-killed mid-test
+.disk_probe_*.bin
+
 # tooling caches / editable-install metadata
 .ruff_cache/
 .pytest_cache/

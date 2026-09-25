@@ -56,6 +56,11 @@ network-dependent path gets documented instead, see
 prediction) must cite the paper in a comment at the point it's implemented
 — not just in a README reference list.
 
+**Machine facts come from one place.** RAM, CPU, drive, and disk-speed
+information comes only from `expertrelay.manager.profile`. Don't call
+psutil/platform/PowerShell for machine facts anywhere else; extend the
+profile instead.
+
 **Memory budget.** Enforce a memory budget in code wherever a component
 loads weights or caches data, and measure peak RAM in every benchmark
 (`expertrelay.benchmarking.peak_process_rss_mb`).
