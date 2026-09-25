@@ -89,7 +89,8 @@ before we could even validate correctness.
 Given the RAM ceiling above, downloading/converting a real checkpoint in
 this session wasn't viable. Instead, to still validate the mechanics before
 committing to a specific model, I wrote a small **native MindSpore MoE
-sanity check**: [`src/moe_sanity_check.py`](../src/moe_sanity_check.py).
+sanity check** (now at
+[`src/expertrelay/bench/moe_sanity_check.py`](../src/expertrelay/bench/moe_sanity_check.py)).
 
 - Randomly-initialized (untrained) decoder: embedding → 2× MoE layers
   (router + top-k dispatch over 4 experts, each a 2-layer FFN) → LayerNorm →
@@ -146,6 +147,15 @@ is no native architecture for Qwen1.5-MoE-A2.7B's exact HF model type
 (`qwen2_moe`) in MindFormers. This session ended up writing that
 architecture by hand instead (see below) rather than relying on a
 MindFormers class that doesn't exist for this model family.
+
+**Path note (2026-09-25):** the file paths below (`src/moe_convert/...`,
+`src/coordinator.py`, etc.) describe where this code lived *at the time it
+was written*, in this session. It has since been restructured into the
+`src/expertrelay/` package (`expertrelay.store`, `expertrelay.manager`,
+`expertrelay.runtime`, `expertrelay.bench`) — see `docs/limitations.md` for
+the current, maintained state and `CLAUDE.md` for the package layout. This
+section is left as-is as a historical record of the design work; don't
+follow its paths literally.
 
 ## What this session set out to do
 

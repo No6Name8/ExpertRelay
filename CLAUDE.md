@@ -1,0 +1,83 @@
+# ExpertRelay
+
+"Virtual memory for AI": MoE expert caching, prediction, and prefetching
+across RAM, SSD, and networked devices. Built on MindSpore 2.7.1 (CPU) +
+MindFormers' naming conventions. Primary dev machine: Windows, 8GB RAM, no
+GPU/Ascend — every design choice here has to work under that constraint
+first, then scale up.
+
+Read `docs/limitations.md` before trusting any claim about what this repo
+can currently do — it's the single source of truth for real vs. simplified
+vs. not-yet-implemented.
+
+## Rules for all work in this repo
+
+**No fake results.** Any simplification — fewer layers, a mocked component,
+a reduced expert count, a synthetic weight instead of a real one — must be
+labeled in a code comment AND recorded in `docs/limitations.md`. If you're
+not sure whether something counts as a simplification, write it down; that
+costs nothing, and a reviewer finding an undisclosed one costs everything.
+
+**Benchmarks are scripts, not spreadsheets.** Every benchmark is a script
+in the repo that writes raw JSON to `benchmarks/results/`, including at
+minimum: git commit hash, machine profile (platform, CPU count, RAM,
+MindSpore version), model, config, seed, and timestamp. Use
+`expertrelay.benchmarking` for this — don't hand-roll the metadata dict
+again. Charts are generated only from those JSON files, never hand-edited
+or eyeballed into existence.
+
+**Correctness rule.** ExpertRelay's output must match the reference (the
+full model held in RAM, no splitting/caching/prediction) token-for-token
+under greedy decoding. Enforce this with tests wherever possible. When the
+real reference is too large/slow/network-dependent for an automated test
+(e.g. the actual 24-layer/60-expert Qwen1.5-MoE-A2.7B), the test's
+reference is a smaller synthetic model exercising the same code path — and
+the manual, real-model validation this narrower test stands in for must be
+documented (see `test_split_correctness.py` for the pattern, and
+`docs/limitations.md` for where the real-model check currently lives).
+
+**Tests.** pytest for all logic in `store/`, `cache/`, `predictor/`,
+`manager/`, `runtime/`. Tests must be deterministic — no un-seeded
+randomness, no live network calls (offline logic gets tested; the
+network-dependent path gets documented instead, see
+`tests/test_store_fetch_hf_tensors.py`'s docstring for the pattern).
+
+**Code style.**
+- Type hints and docstrings everywhere reasonable. Docstrings explain WHY
+  (a non-obvious constraint, a deliberate simplification, a workaround),
+  not what the code already says via good naming.
+- `ruff` for lint and format — run both before committing.
+- `pathlib.Path` for paths, always anchored to `expertrelay.REPO_ROOT`
+  (see `expertrelay/paths.py`). No relative-to-CWD or relative-to-`__file__`
+  path hacks.
+- No dead code, no commented-out code. Delete it or don't write it.
+
+**Citations.** Any method taken from a paper (e.g. Fate's cross-layer gate
+prediction) must cite the paper in a comment at the point it's implemented
+— not just in a README reference list.
+
+**Memory budget.** Enforce a memory budget in code wherever a component
+loads weights or caches data, and measure peak RAM in every benchmark
+(`expertrelay.benchmarking.peak_process_rss_mb`).
+
+**Git.** Commit after each completed step with a clear message, and push.
+Don't batch unrelated changes into one commit.
+
+## Package layout
+
+```
+src/expertrelay/
+  store/      persistence: fetching + converting expert weights (HF Hub -> local checkpoint)
+  cache/      hot/cold expert placement + eviction across RAM/SSD/network (placeholder, see limitations.md)
+  predictor/  predicting which expert will be needed next (placeholder, see limitations.md)
+  manager/    understands every device, dispatches each request to the right one
+  runtime/    the actual MoE forward pass, wire protocol, expert-serving process
+  bench/      benchmark and demo scripts -- each writes to benchmarks/results/
+```
+
+## Not covered by this file
+
+Anything about the current state of the code — what's implemented, what's
+a stub, what's been validated and how — belongs in `docs/limitations.md`
+and `docs/setup-notes.md`, not here. This file is standing instructions;
+those are living status.

@@ -1,17 +1,17 @@
 """Minimal MoE forward-pass + greedy-decode sanity check on MindSpore CPU.
 
-Not a pretrained model — this is a small, randomly-initialized decoder-only
+Not a pretrained model -- this is a small, randomly-initialized decoder-only
 transformer with a Mixture-of-Experts feed-forward block (top-k router over
 N experts). Purpose: prove the MoE mechanics (routing, expert dispatch,
 combine) run correctly end-to-end on this machine's MindSpore/CPU install
 before attempting any real checkpoint conversion or device-splitting work.
 """
-import numpy as np
-import mindspore as ms
-from mindspore import nn, ops, Tensor, Parameter
 
-ms.set_context(device_target="CPU")
-ms.set_seed(0)
+from __future__ import annotations
+
+import mindspore as ms
+import numpy as np
+from mindspore import Tensor, nn, ops
 
 VOCAB_SIZE = 64
 HIDDEN_SIZE = 32
@@ -22,13 +22,13 @@ SEQ_LEN = 8
 
 
 class Router(nn.Cell):
-    def __init__(self, hidden_size, num_experts, top_k):
+    def __init__(self, hidden_size: int, num_experts: int, top_k: int):
         super().__init__()
         self.gate = nn.Dense(hidden_size, num_experts)
         self.top_k = top_k
         self.num_experts = num_experts
 
-    def construct(self, x):
+    def construct(self, x: Tensor):
         logits = self.gate(x)
         weights = ops.softmax(logits, axis=-1)
         topk_weights, topk_idx = ops.top_k(weights, self.top_k)
@@ -37,25 +37,25 @@ class Router(nn.Cell):
 
 
 class Expert(nn.Cell):
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size: int):
         super().__init__()
         self.fc1 = nn.Dense(hidden_size, hidden_size * 2)
         self.act = nn.GELU()
         self.fc2 = nn.Dense(hidden_size * 2, hidden_size)
 
-    def construct(self, x):
+    def construct(self, x: Tensor) -> Tensor:
         return self.fc2(self.act(self.fc1(x)))
 
 
 class MoELayer(nn.Cell):
-    def __init__(self, hidden_size, num_experts, top_k):
+    def __init__(self, hidden_size: int, num_experts: int, top_k: int):
         super().__init__()
         self.router = Router(hidden_size, num_experts, top_k)
         self.experts = nn.CellList([Expert(hidden_size) for _ in range(num_experts)])
         self.num_experts = num_experts
         self.top_k = top_k
 
-    def construct(self, x):
+    def construct(self, x: Tensor) -> Tensor:
         # x: (batch, seq, hidden)
         b, s, h = x.shape
         flat = x.reshape(b * s, h)
@@ -71,16 +71,14 @@ class MoELayer(nn.Cell):
 
 
 class TinyMoEDecoder(nn.Cell):
-    def __init__(self, vocab_size, hidden_size, num_layers, num_experts, top_k):
+    def __init__(self, vocab_size: int, hidden_size: int, num_layers: int, num_experts: int, top_k: int):
         super().__init__()
         self.embed = nn.Embedding(vocab_size, hidden_size)
-        self.moe_layers = nn.CellList(
-            [MoELayer(hidden_size, num_experts, top_k) for _ in range(num_layers)]
-        )
+        self.moe_layers = nn.CellList([MoELayer(hidden_size, num_experts, top_k) for _ in range(num_layers)])
         self.norm = nn.LayerNorm([hidden_size])
         self.head = nn.Dense(hidden_size, vocab_size)
 
-    def construct(self, token_ids):
+    def construct(self, token_ids: Tensor) -> Tensor:
         x = self.embed(token_ids)
         for layer in self.moe_layers:
             x = x + layer(x)  # residual
@@ -88,7 +86,10 @@ class TinyMoEDecoder(nn.Cell):
         return self.head(x)
 
 
-def main():
+def main() -> None:
+    ms.set_context(device_target="CPU")
+    ms.set_seed(0)
+
     model = TinyMoEDecoder(VOCAB_SIZE, HIDDEN_SIZE, NUM_LAYERS, NUM_EXPERTS, TOP_K)
     model.set_train(False)
 
@@ -96,7 +97,7 @@ def main():
     print("Prompt token ids:", prompt.asnumpy().tolist())
 
     generated = prompt
-    for step in range(5):
+    for _ in range(5):
         logits = model(generated)
         next_logits = logits[:, -1, :]
         next_token = ops.argmax(next_logits, dim=-1).reshape(1, 1).astype(ms.int32)

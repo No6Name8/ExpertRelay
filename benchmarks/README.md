@@ -1,12 +1,21 @@
 # Benchmarks
 
-## local_split_simulation.json
+Every benchmark script writes its raw results as a JSON list to
+`benchmarks/results/<name>.json` (never edited by hand), with each record
+carrying at minimum: `git_commit`, `machine` (platform/CPU/RAM/MindSpore
+version), `seed`, `model`, `config`, and `timestamp` -- see `CLAUDE.md`.
+Charts, if any, are generated only from these files, never hand-edited.
+
+## results/local_split_simulation.json
+
+Produced by `python -m expertrelay.bench.run_local_split_demo`.
 
 **Single-machine simulation, reduced expert count.** Two Python processes on
-this one 8GB laptop (`expert_server.py` = "Process B", `coordinator.py` =
-"Process A") talking over a real TCP socket on `127.0.0.1`, running a
-2-layer / 4-expert reduced slice of the real Qwen1.5-MoE-A2.7B weights (see
-`docs/setup-notes.md` for exactly what's real vs. reduced).
+this one 8GB laptop (`expertrelay.runtime.expert_server` = "Process B",
+`expertrelay.manager.coordinator` = "Process A") talking over a real TCP
+socket on `127.0.0.1`, running a 2-layer / 4-expert reduced slice of the
+real Qwen1.5-MoE-A2.7B weights (see `docs/limitations.md` for exactly
+what's real vs. reduced).
 
 **Do not compare this number to a future real two-machine benchmark without
 re-reading the caveats below** -- it measures very different things:

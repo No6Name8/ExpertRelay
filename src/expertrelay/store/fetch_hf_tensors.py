@@ -13,14 +13,15 @@ Safetensors file layout (per shard):
     [N bytes]  UTF-8 JSON header: {tensor_name: {dtype, shape, data_offsets:[s,e]}, "__metadata__": {...}}
     [rest]     raw tensor bytes, back-to-back, offsets relative to end of header
 """
+
 from __future__ import annotations
 
 import json
 import struct
 import time
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Dict, List
 
 import numpy as np
 
@@ -40,7 +41,7 @@ _SAFE_DTYPES = {
 
 def _http_get_range(url: str, start: int, end_inclusive: int, timeout: int = 60, retries: int = 4) -> bytes:
     req = urllib.request.Request(url, headers={"Range": f"bytes={start}-{end_inclusive}"})
-    last_err = None
+    last_err: Exception | None = None
     for attempt in range(retries):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -66,13 +67,15 @@ def fetch_index(repo_id: str, revision: str = "main") -> dict:
 @dataclass
 class ShardHeader:
     header_len: int
-    entries: Dict[str, dict]  # name -> {"dtype", "shape", "data_offsets": [s, e]}
+    entries: dict[str, dict]  # name -> {"dtype", "shape", "data_offsets": [s, e]}
 
 
-_shard_header_cache: Dict[str, ShardHeader] = {}
+_shard_header_cache: dict[str, ShardHeader] = {}
 
 
 def _get_shard_header(shard_url: str) -> ShardHeader:
+    """Fetch + parse one shard's safetensors header (cached: a shard with
+    many wanted tensors should only pay this cost once)."""
     if shard_url in _shard_header_cache:
         return _shard_header_cache[shard_url]
     length_bytes = _http_get_range(shard_url, 0, 7)
@@ -86,6 +89,7 @@ def _get_shard_header(shard_url: str) -> ShardHeader:
 
 
 def _bf16_bytes_to_fp32(raw: bytes, shape) -> np.ndarray:
+    """bf16 is literally the top 16 bits of fp32 -- upcast is a left-shift, no rounding needed."""
     u16 = np.frombuffer(raw, dtype="<u2")
     u32 = u16.astype(np.uint32) << 16
     f32 = u32.view(np.float32)
@@ -94,11 +98,11 @@ def _bf16_bytes_to_fp32(raw: bytes, shape) -> np.ndarray:
 
 def fetch_tensors(
     repo_id: str,
-    tensor_names: List[str],
+    tensor_names: list[str],
     revision: str = "main",
     index: dict | None = None,
-    progress_cb=None,
-) -> Dict[str, np.ndarray]:
+    progress_cb: Callable[[int, int, str, int], None] | None = None,
+) -> dict[str, np.ndarray]:
     """Fetch exactly `tensor_names` from a sharded HF safetensors checkpoint.
 
     Returns {name: np.float32 ndarray}. Groups requests by shard file and
@@ -111,13 +115,15 @@ def fetch_tensors(
 
     missing = [n for n in tensor_names if n not in weight_map]
     if missing:
-        raise KeyError(f"tensor(s) not found in checkpoint index: {missing[:5]}{'...' if len(missing) > 5 else ''}")
+        raise KeyError(
+            f"tensor(s) not found in checkpoint index: {missing[:5]}{'...' if len(missing) > 5 else ''}"
+        )
 
-    by_shard: Dict[str, List[str]] = {}
+    by_shard: dict[str, list[str]] = {}
     for name in tensor_names:
         by_shard.setdefault(weight_map[name], []).append(name)
 
-    out: Dict[str, np.ndarray] = {}
+    out: dict[str, np.ndarray] = {}
     done = 0
     total = len(tensor_names)
     for shard_file, names in by_shard.items():

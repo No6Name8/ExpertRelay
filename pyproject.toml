@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "expertrelay"
+version = "0.1.0"
+description = "Virtual memory for AI: MoE expert caching, prediction, and prefetching across RAM, SSD, and networked devices."
+requires-python = ">=3.10"
+readme = "README.md"
+dependencies = [
+    "mindspore==2.7.1",
+    "numpy",
+    "tokenizers",
+    "psutil",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[project.scripts]
+expertrelay-convert = "expertrelay.store.convert_qwen_moe:main"
+expertrelay-expert-server = "expertrelay.runtime.expert_server:main"
+expertrelay-coordinator = "expertrelay.manager.coordinator:main"
+expertrelay-demo = "expertrelay.bench.run_local_split_demo:main"
+expertrelay-moe-sanity-check = "expertrelay.bench.moe_sanity_check:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+exclude = ["models", "benchmarks/results"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = [
+    "E501",  # line length is a formatter concern, not a lint failure
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["expertrelay"]
+
+[tool.ruff.format]
+quote-style = "double"

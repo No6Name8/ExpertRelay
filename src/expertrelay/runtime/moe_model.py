@@ -6,7 +6,10 @@ Parameter names deliberately follow MindFormers' naming vocabulary (see
 `decoder.layers.N.self_attention...`, `mlp.router`, `gating`/`hidden`/
 `linear_fc2` for the SwiGLU projections, `output_layer`, etc. -- lifted from
 the real mindformers/models/qwen3_moe/utils.py weight_mapping) so the
-checkpoint this produces reads like a MindFormers-style checkpoint.
+checkpoint this produces reads like a MindFormers-style checkpoint. This
+repo does not depend on the `mindformers` package itself -- see
+docs/limitations.md for why the architecture is hand-rolled rather than
+imported.
 
 One deliberate simplification vs. real MindFormers: MindFormers fuses Q/K/V
 into one `linear_qkv` matrix and stacks all experts into two big `weight1`/
@@ -15,7 +18,7 @@ its tensor-parallel / expert-parallel training kernels. That fusion is an
 internal performance detail for large-scale distributed *training*; it's
 irrelevant to what we're validating here (does the conversion + device-split
 pipeline work end-to-end), so this model keeps attention and experts UNFUSED
--- one Linear per Q/K/V/O and per expert projection. See docs/setup-notes.md
+-- one Linear per Q/K/V/O and per expert projection. See docs/limitations.md
 for the full list of what's real vs. simplified.
 
 The MoE layer's expert dispatch is split-aware: each MoELayer is given a
@@ -24,18 +27,15 @@ this process; tokens routed to any other expert id call out through a
 `remote_expert_fn(layer_idx, expert_id, hidden_states) -> np.ndarray`
 callback -- this is the exact seam the two-process TCP split hooks into.
 """
+
 from __future__ import annotations
 
 import math
-from typing import Callable, Dict, List, Optional, Set
+from collections.abc import Callable
 
-import numpy as np
 import mindspore as ms
-from mindspore import nn, ops, Tensor, Parameter
-
-
-def _np32(x) -> Tensor:
-    return Tensor(np.asarray(x, dtype=np.float32))
+import numpy as np
+from mindspore import Parameter, Tensor, nn, ops
 
 
 class Linear(nn.Cell):
@@ -46,7 +46,7 @@ class Linear(nn.Cell):
         self.weight = Parameter(ops.zeros((out_features, in_features), ms.float32), name="weight")
         self.bias = Parameter(ops.zeros((out_features,), ms.float32), name="bias") if bias else None
 
-    def construct(self, x):
+    def construct(self, x: Tensor) -> Tensor:
         y = ops.matmul(x, self.weight.T)
         if self.bias is not None:
             y = y + self.bias
@@ -54,12 +54,14 @@ class Linear(nn.Cell):
 
 
 class RMSNorm(nn.Cell):
+    """Qwen2's normalization: no mean-centering, just RMS scaling by a learned weight."""
+
     def __init__(self, hidden_size: int, eps: float):
         super().__init__()
         self.weight = Parameter(ops.ones((hidden_size,), ms.float32), name="weight")
         self.eps = eps
 
-    def construct(self, x):
+    def construct(self, x: Tensor) -> Tensor:
         variance = ops.mean(ops.square(x), axis=-1, keep_dims=True)
         x = x * ops.rsqrt(variance + self.eps)
         return x * self.weight
@@ -70,20 +72,24 @@ class WordEmbeddings(nn.Cell):
         super().__init__()
         self.weight = Parameter(ops.zeros((vocab_size, hidden_size), ms.float32), name="weight")
 
-    def construct(self, token_ids):
+    def construct(self, token_ids: Tensor) -> Tensor:
         return ops.gather(self.weight, token_ids, 0)
 
 
 class Embedding(nn.Cell):
+    """Wraps WordEmbeddings one level deeper so the checkpoint key reads
+    `embedding.word_embeddings.weight`, matching MindFormers' convention."""
+
     def __init__(self, vocab_size: int, hidden_size: int):
         super().__init__()
         self.word_embeddings = WordEmbeddings(vocab_size, hidden_size)
 
-    def construct(self, token_ids):
+    def construct(self, token_ids: Tensor) -> Tensor:
         return self.word_embeddings(token_ids)
 
 
-def _rotary_tables(seq_len: int, head_dim: int, theta: float):
+def _rotary_tables(seq_len: int, head_dim: int, theta: float) -> tuple[np.ndarray, np.ndarray]:
+    """Precompute RoPE cos/sin tables for a sequence of this length."""
     inv_freq = 1.0 / (theta ** (np.arange(0, head_dim, 2, dtype=np.float64) / head_dim))
     t = np.arange(seq_len, dtype=np.float64)
     freqs = np.outer(t, inv_freq)  # (seq, head_dim/2)
@@ -91,23 +97,32 @@ def _rotary_tables(seq_len: int, head_dim: int, theta: float):
     return np.cos(emb).astype(np.float32), np.sin(emb).astype(np.float32)
 
 
-def _rotate_half(x):
+def _rotate_half(x: Tensor) -> Tensor:
     half = x.shape[-1] // 2
     x1, x2 = x[..., :half], x[..., half:]
     return ops.concat([-x2, x1], axis=-1)
 
 
 class SelfAttention(nn.Cell):
+    """Causal self-attention with RoPE. No GQA needed: Qwen1.5-MoE-A2.7B has
+    num_key_value_heads == num_attention_heads (plain multi-head attention)."""
+
     def __init__(self, hidden_size: int, num_heads: int):
         super().__init__()
         self.num_heads = num_heads
         self.head_dim = hidden_size // num_heads
+        # _rotate_half splits head_dim exactly in two; an odd head_dim would
+        # silently drop an element instead of failing close to the cause.
+        if self.head_dim % 2 != 0:
+            raise ValueError(
+                f"head_dim ({hidden_size}/{num_heads}={self.head_dim}) must be even for RoPE's rotate_half"
+            )
         self.linear_q = Linear(hidden_size, hidden_size, bias=True)
         self.linear_k = Linear(hidden_size, hidden_size, bias=True)
         self.linear_v = Linear(hidden_size, hidden_size, bias=True)
         self.linear_proj = Linear(hidden_size, hidden_size, bias=False)
 
-    def construct(self, x, cos, sin, causal_mask):
+    def construct(self, x: Tensor, cos: Tensor, sin: Tensor, causal_mask: Tensor) -> Tensor:
         b, s, h = x.shape
         nh, hd = self.num_heads, self.head_dim
 
@@ -138,7 +153,7 @@ class SwiGLUExpert(nn.Cell):
         self.linear_fc2 = Linear(ffn_size, hidden_size, bias=False)
         self.act = nn.SiLU()
 
-    def construct(self, x):
+    def construct(self, x: Tensor) -> Tensor:
         return self.linear_fc2(self.act(self.gating(x)) * self.hidden(x))
 
 
@@ -149,7 +164,9 @@ class MoELayer(nn.Cell):
     weights for. Any selected expert id NOT in that set is dispatched via
     `remote_expert_fn` -- set by the coordinator process to a function that
     round-trips the request over the TCP socket to whichever process does
-    hold it.
+    hold it. This is deliberately a plain Python loop over tokens/experts,
+    not a batched/vectorized dispatch: correctness and a working split were
+    the goal for this reduced model, not throughput (see docs/limitations.md).
     """
 
     def __init__(
@@ -157,8 +174,8 @@ class MoELayer(nn.Cell):
         hidden_size: int,
         moe_ffn_size: int,
         shared_ffn_size: int,
-        expert_ids: List[int],
-        local_expert_ids: Set[int],
+        expert_ids: list[int],
+        local_expert_ids: set[int],
         top_k: int,
     ):
         super().__init__()
@@ -168,25 +185,29 @@ class MoELayer(nn.Cell):
         self.router = Linear(hidden_size, len(expert_ids), bias=False)
         self.shared_expert = SwiGLUExpert(hidden_size, shared_ffn_size)
         self.shared_expert_gate = Linear(hidden_size, 1, bias=False)
-        self.experts: Dict[int, SwiGLUExpert] = {}
+        self.experts: dict[int, SwiGLUExpert] = {}
         for eid in expert_ids:
             if eid in self.local_expert_ids:
                 cell = SwiGLUExpert(hidden_size, moe_ffn_size)
                 setattr(self, f"expert_{eid}", cell)
                 self.experts[eid] = cell
 
-        self.remote_expert_fn: Optional[Callable[[int, int, np.ndarray], np.ndarray]] = None
+        self.remote_expert_fn: Callable[[int, int, np.ndarray], np.ndarray] | None = None
         self.layer_idx: int = -1
         self.remote_calls = 0
         self.local_calls = 0
 
-    def construct(self, x):
+    def construct(self, x: Tensor) -> Tensor:
         b, s, h = x.shape
         flat = x.reshape(b * s, h)
         flat_np = flat.asnumpy()
 
         logits = self.router(flat)
-        weights = ops.softmax(logits, axis=-1).asnumpy()  # (tokens, num_selected_experts) -- see docs: NOT renormalized (norm_topk_prob=False in real config)
+        # NOT renormalized across the top-k -- matches the real model's
+        # norm_topk_prob=False, just computed over our (possibly truncated)
+        # expert_ids list instead of the real model's full 60. See
+        # docs/limitations.md for what that changes.
+        weights = ops.softmax(logits, axis=-1).asnumpy()  # (tokens, num_selected_experts)
         topk_idx = np.argsort(-weights, axis=-1)[:, : self.top_k]  # (tokens, top_k) indices into expert_ids
 
         out_np = np.zeros_like(flat_np)
@@ -218,15 +239,24 @@ class MoELayer(nn.Cell):
 
 
 class DecoderLayer(nn.Cell):
-    def __init__(self, hidden_size, num_heads, moe_ffn_size, shared_ffn_size,
-                 expert_ids, local_expert_ids, top_k, rms_eps):
+    def __init__(
+        self,
+        hidden_size: int,
+        num_heads: int,
+        moe_ffn_size: int,
+        shared_ffn_size: int,
+        expert_ids: list[int],
+        local_expert_ids: set[int],
+        top_k: int,
+        rms_eps: float,
+    ):
         super().__init__()
         self.input_layernorm = RMSNorm(hidden_size, rms_eps)
         self.self_attention = SelfAttention(hidden_size, num_heads)
         self.pre_mlp_layernorm = RMSNorm(hidden_size, rms_eps)
         self.mlp = MoELayer(hidden_size, moe_ffn_size, shared_ffn_size, expert_ids, local_expert_ids, top_k)
 
-    def construct(self, x, cos, sin, causal_mask):
+    def construct(self, x: Tensor, cos: Tensor, sin: Tensor, causal_mask: Tensor) -> Tensor:
         residual = x
         x = self.input_layernorm(x)
         x = self.self_attention(x, cos, sin, causal_mask)
@@ -240,21 +270,39 @@ class DecoderLayer(nn.Cell):
 
 
 class Decoder(nn.Cell):
-    def __init__(self, num_layers, hidden_size, num_heads, moe_ffn_size, shared_ffn_size,
-                 expert_ids, local_expert_ids_per_layer, top_k, rms_eps):
+    def __init__(
+        self,
+        num_layers: int,
+        hidden_size: int,
+        num_heads: int,
+        moe_ffn_size: int,
+        shared_ffn_size: int,
+        expert_ids: list[int],
+        local_expert_ids_per_layer: list[set[int]],
+        top_k: int,
+        rms_eps: float,
+    ):
         super().__init__()
-        self.layers = nn.CellList([
-            DecoderLayer(
-                hidden_size, num_heads, moe_ffn_size, shared_ffn_size,
-                expert_ids, local_expert_ids_per_layer[i], top_k, rms_eps,
-            )
-            for i in range(num_layers)
-        ])
+        self.layers = nn.CellList(
+            [
+                DecoderLayer(
+                    hidden_size,
+                    num_heads,
+                    moe_ffn_size,
+                    shared_ffn_size,
+                    expert_ids,
+                    local_expert_ids_per_layer[i],
+                    top_k,
+                    rms_eps,
+                )
+                for i in range(num_layers)
+            ]
+        )
         for i, layer in enumerate(self.layers):
             layer.mlp.layer_idx = i
         self.final_layernorm = RMSNorm(hidden_size, rms_eps)
 
-    def construct(self, x, cos, sin, causal_mask):
+    def construct(self, x: Tensor, cos: Tensor, sin: Tensor, causal_mask: Tensor) -> Tensor:
         for layer in self.layers:
             x = layer(x, cos, sin, causal_mask)
         return self.final_layernorm(x)
@@ -263,18 +311,18 @@ class Decoder(nn.Cell):
 class ExpertShardLayer(nn.Cell):
     """Holds just the expert FFNs assigned to this process, for one decoder layer."""
 
-    def __init__(self, hidden_size: int, moe_ffn_size: int, expert_ids: List[int]):
+    def __init__(self, hidden_size: int, moe_ffn_size: int, expert_ids: list[int]):
         super().__init__()
-        self.experts: Dict[int, SwiGLUExpert] = {}
+        self.experts: dict[int, SwiGLUExpert] = {}
         for eid in expert_ids:
             cell = SwiGLUExpert(hidden_size, moe_ffn_size)
             setattr(self, f"expert_{eid}", cell)
             self.experts[eid] = cell
 
-    def construct(self, expert_id, x):
+    def construct(self, expert_id: Tensor, x: Tensor) -> Tensor:
         # Not used directly by MindSpore graph tracing -- the TCP server calls
-        # into self.experts[eid] directly (see expert_server.py). Kept for
-        # completeness / potential batched-graph use later.
+        # into self.experts[eid] directly (see runtime/expert_server.py). Kept
+        # for completeness / potential batched-graph use later.
         return self.experts[int(expert_id)](x)
 
 
@@ -285,12 +333,14 @@ class RemoteExpertShard(nn.Cell):
     needs to hold in RAM.
     """
 
-    def __init__(self, hidden_size: int, moe_ffn_size: int, expert_ids_per_layer: Dict[int, List[int]]):
+    def __init__(self, hidden_size: int, moe_ffn_size: int, expert_ids_per_layer: dict[int, list[int]]):
         super().__init__()
-        self.shard_layers = nn.CellList([
-            ExpertShardLayer(hidden_size, moe_ffn_size, expert_ids_per_layer.get(i, []))
-            for i in sorted(expert_ids_per_layer.keys())
-        ])
+        self.shard_layers = nn.CellList(
+            [
+                ExpertShardLayer(hidden_size, moe_ffn_size, expert_ids_per_layer.get(i, []))
+                for i in sorted(expert_ids_per_layer.keys())
+            ]
+        )
         self._layer_index = {i: pos for pos, i in enumerate(sorted(expert_ids_per_layer.keys()))}
 
     def run_expert(self, layer_idx: int, expert_id: int, x_np: np.ndarray) -> np.ndarray:
@@ -303,8 +353,12 @@ class RemoteExpertShard(nn.Cell):
 class ReducedQwenMoe(nn.Cell):
     """Top-level model: embedding -> decoder -> output_layer (lm_head)."""
 
-    def __init__(self, cfg: dict, local_expert_ids_per_layer: List[Set[int]],
-                 remote_expert_fn: Optional[Callable] = None):
+    def __init__(
+        self,
+        cfg: dict,
+        local_expert_ids_per_layer: list[set[int]],
+        remote_expert_fn: Callable | None = None,
+    ):
         super().__init__()
         self.cfg = cfg
         self.embedding = Embedding(cfg["vocab_size"], cfg["hidden_size"])
@@ -323,17 +377,20 @@ class ReducedQwenMoe(nn.Cell):
         if remote_expert_fn is not None:
             self.set_remote_expert_fn(remote_expert_fn)
 
-    def set_remote_expert_fn(self, fn):
+    def set_remote_expert_fn(self, fn: Callable[[int, int, np.ndarray], np.ndarray]) -> None:
         for layer in self.decoder.layers:
             layer.mlp.remote_expert_fn = fn
 
-    def call_stats(self):
+    def call_stats(self) -> list[dict]:
+        """Per-layer local vs. remote expert-dispatch counts, for benchmarking/debugging."""
         stats = []
         for i, layer in enumerate(self.decoder.layers):
-            stats.append({"layer": i, "local_calls": layer.mlp.local_calls, "remote_calls": layer.mlp.remote_calls})
+            stats.append(
+                {"layer": i, "local_calls": layer.mlp.local_calls, "remote_calls": layer.mlp.remote_calls}
+            )
         return stats
 
-    def construct(self, token_ids):
+    def construct(self, token_ids: Tensor) -> Tensor:
         b, s = token_ids.shape
         hd = self.cfg["hidden_size"] // self.cfg["num_attention_heads"]
         cos_np, sin_np = _rotary_tables(s, hd, self.cfg["rope_theta"])

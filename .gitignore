@@ -7,8 +7,15 @@ node_modules/
 *.log
 .DS_Store
 
-# downloaded/converted model weights -- regenerable via src/moe_convert,
+# downloaded/converted model weights -- regenerable via expertrelay.store,
 # too large and too derived to belong in git history
 models/
 *.ckpt
 *.safetensors
+
+# tooling caches / editable-install metadata
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+build/
+dist/

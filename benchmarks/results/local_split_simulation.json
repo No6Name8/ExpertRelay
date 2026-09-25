@@ -1,0 +1,67 @@
+[
+  {
+    "label": "single-machine simulation, reduced expert count",
+    "timestamp": "2026-09-25T06:11:40Z",
+    "git_commit": "578fb03a954cbb3132783cd5209028e1262afb2f",
+    "git_dirty": true,
+    "machine": {
+      "platform": "Windows-10-10.0.26200-SP0",
+      "python_version": "3.10.0",
+      "mindspore_version": "2.7.1",
+      "cpu_count_logical": 12,
+      "total_ram_gb": 8.3
+    },
+    "seed": 0,
+    "model": {
+      "source_repo": "Qwen/Qwen1.5-MoE-A2.7B",
+      "revision": "main"
+    },
+    "config": {
+      "vocab_size": 151936,
+      "hidden_size": 2048,
+      "num_attention_heads": 16,
+      "moe_intermediate_size": 1408,
+      "shared_expert_intermediate_size": 5632,
+      "rms_norm_eps": 1e-06,
+      "rope_theta": 1000000.0,
+      "num_layers": 2,
+      "expert_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "top_k": 2,
+      "real_num_hidden_layers": 24,
+      "real_num_experts": 60,
+      "real_num_experts_per_tok": 4
+    },
+    "prompt": "The capital of France is",
+    "new_tokens": 15,
+    "elapsed_seconds": 41.644757400033996,
+    "tokens_per_second": 0.3601893956521825,
+    "remote_calls": 349,
+    "remote_wire_seconds": 7.678354299860075,
+    "per_layer_calls": [
+      {
+        "layer": 0,
+        "local_calls": 171,
+        "remote_calls": 189
+      },
+      {
+        "layer": 1,
+        "local_calls": 200,
+        "remote_calls": 160
+      }
+    ],
+    "process_a_experts": [
+      0,
+      1
+    ],
+    "process_b_experts": [
+      2,
+      3
+    ],
+    "peak_rss_mb": 4016.398336
+  }
+]
