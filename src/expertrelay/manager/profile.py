@@ -26,9 +26,8 @@ Run `python -m expertrelay.manager.profile` to measure and save a profile.
 from __future__ import annotations
 
 import argparse
-import ctypes
+import importlib.metadata
 import json
-import mmap
 import platform
 import re
 import shutil
@@ -37,18 +36,16 @@ import statistics
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-import mindspore as ms
 import numpy as np
 import psutil
 
 from expertrelay import REPO_ROOT
 from expertrelay.benchmarking import append_benchmark_record, base_record, peak_process_rss_mb
 from expertrelay.paths import BENCHMARK_RESULTS_DIR
+from expertrelay.store import unbuffered_io
 
 # One routed expert of Qwen1.5-MoE-A2.7B is three projections: gate and up
 # are [moe_intermediate_size=1408, hidden_size=2048], down is the transpose.
@@ -59,11 +56,10 @@ QWEN_MOE_EXPERT_PARAMS = 3 * 1408 * 2048
 EXPERT_BYTES_INT8 = QWEN_MOE_EXPERT_PARAMS * 1
 EXPERT_BYTES_FP16 = QWEN_MOE_EXPERT_PARAMS * 2
 
-# FILE_FLAG_NO_BUFFERING requires every read size, file offset and buffer
-# address to be a multiple of the volume sector size. 4096 covers both 512-
-# and 4096-byte sectors. Both expert sizes above happen to be exact multiples
-# of 4096 (2112 and 4224 sectors), so no padding is needed.
-IO_ALIGNMENT = 4096
+# Unbuffered I/O alignment (see expertrelay.store.unbuffered_io). Both expert
+# sizes above happen to be exact multiples of it (2112 and 4224 sectors), so
+# no padding is needed.
+IO_ALIGNMENT = unbuffered_io.ALIGNMENT
 
 DEFAULT_TEST_FILE_BYTES = 1024 * 1024 * 1024  # 1 GiB
 DEFAULT_REPEATS = 3
@@ -278,7 +274,10 @@ def measure_software() -> SoftwareInfo:
     return SoftwareInfo(
         platform=platform.platform(),
         python_version=platform.python_version(),
-        mindspore_version=ms.__version__,
+        # Read from package metadata, not `import mindspore`: importing the
+        # framework just to get its version costs hundreds of MB of RAM,
+        # which long-running callers (the store build) can't spare.
+        mindspore_version=importlib.metadata.version("mindspore"),
     )
 
 
@@ -298,8 +297,7 @@ def measure_software() -> SoftwareInfo:
 # entirely. The file is written with NO_BUFFERING + WRITE_THROUGH, so its
 # pages never enter the Windows file cache, and every read is a real device
 # read. The price is that sizes, offsets and buffer addresses must be
-# sector-aligned (see IO_ALIGNMENT); buffers come from an anonymous mmap,
-# which is page-aligned.
+# sector-aligned; the primitives live in expertrelay.store.unbuffered_io.
 #
 # What this does NOT bypass: the SSD's own internal caching. A file that was
 # just written probably still sits in the drive's SLC write cache, which can
@@ -334,91 +332,6 @@ def validate_disk_test_params(test_file_bytes: int, chunk_sizes: tuple[int, ...]
             raise ValueError(f"chunk size {chunk} exceeds test file size {test_file_bytes}")
 
 
-if sys.platform == "win32":
-    from ctypes import wintypes
-
-    _GENERIC_READ = 0x80000000
-    _GENERIC_WRITE = 0x40000000
-    _FILE_SHARE_READ = 0x00000001
-    _CREATE_ALWAYS = 2
-    _OPEN_EXISTING = 3
-    _FILE_FLAG_NO_BUFFERING = 0x20000000
-    _FILE_FLAG_WRITE_THROUGH = 0x80000000
-    _FILE_BEGIN = 0
-    _INVALID_HANDLE_VALUE = wintypes.HANDLE(-1).value
-
-    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    _kernel32.CreateFileW.argtypes = [
-        wintypes.LPCWSTR,
-        wintypes.DWORD,
-        wintypes.DWORD,
-        wintypes.LPVOID,
-        wintypes.DWORD,
-        wintypes.DWORD,
-        wintypes.HANDLE,
-    ]
-    _kernel32.CreateFileW.restype = wintypes.HANDLE
-    _kernel32.ReadFile.argtypes = [
-        wintypes.HANDLE,
-        wintypes.LPVOID,
-        wintypes.DWORD,
-        ctypes.POINTER(wintypes.DWORD),
-        wintypes.LPVOID,
-    ]
-    _kernel32.ReadFile.restype = wintypes.BOOL
-    _kernel32.WriteFile.argtypes = [
-        wintypes.HANDLE,
-        wintypes.LPCVOID,
-        wintypes.DWORD,
-        ctypes.POINTER(wintypes.DWORD),
-        wintypes.LPVOID,
-    ]
-    _kernel32.WriteFile.restype = wintypes.BOOL
-    _kernel32.SetFilePointerEx.argtypes = [
-        wintypes.HANDLE,
-        ctypes.c_longlong,
-        ctypes.POINTER(ctypes.c_longlong),
-        wintypes.DWORD,
-    ]
-    _kernel32.SetFilePointerEx.restype = wintypes.BOOL
-    _kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
-    _kernel32.CloseHandle.restype = wintypes.BOOL
-
-
-def _raise_last_win_error(what: str) -> None:
-    raise ctypes.WinError(ctypes.get_last_error(), f"{what} failed")
-
-
-@contextmanager
-def _aligned_buffer(size: int) -> Iterator[tuple[mmap.mmap, int]]:
-    """A page-aligned buffer and its address. The ctypes view must be released
-    before the mmap can be closed, hence the explicit ordering."""
-    mm = mmap.mmap(-1, size)
-    view = (ctypes.c_char * size).from_buffer(mm)
-    try:
-        yield mm, ctypes.addressof(view)
-    finally:
-        del view
-        mm.close()
-
-
-@contextmanager
-def _unbuffered_handle(path: Path, *, write: bool) -> Iterator[int]:
-    if write:
-        access, disposition = _GENERIC_WRITE, _CREATE_ALWAYS
-        flags = _FILE_FLAG_NO_BUFFERING | _FILE_FLAG_WRITE_THROUGH
-    else:
-        access, disposition = _GENERIC_READ, _OPEN_EXISTING
-        flags = _FILE_FLAG_NO_BUFFERING
-    handle = _kernel32.CreateFileW(str(path), access, _FILE_SHARE_READ, None, disposition, flags, None)
-    if handle == _INVALID_HANDLE_VALUE:
-        _raise_last_win_error(f"CreateFileW({path})")
-    try:
-        yield handle
-    finally:
-        _kernel32.CloseHandle(handle)
-
-
 def _write_test_file(path: Path, size: int, seed: int) -> None:
     """Fill `path` with `size` bytes of incompressible data, bypassing the cache.
 
@@ -426,14 +339,15 @@ def _write_test_file(path: Path, size: int, seed: int) -> None:
     a file of zeros would read back suspiciously fast.
     """
     rng = np.random.default_rng(seed)
-    written = wintypes.DWORD(0)
-    with _unbuffered_handle(path, write=True) as handle, _aligned_buffer(_WRITE_BLOCK_BYTES) as (buf, addr):
+    with (
+        unbuffered_io.unbuffered_handle(path, write=True) as handle,
+        unbuffered_io.aligned_buffer(_WRITE_BLOCK_BYTES) as (buf, addr),
+    ):
         remaining = size
         while remaining:
             n = min(_WRITE_BLOCK_BYTES, remaining)
             buf[:n] = rng.bytes(n)
-            if not _kernel32.WriteFile(handle, addr, n, ctypes.byref(written), None) or written.value != n:
-                _raise_last_win_error("WriteFile")
+            unbuffered_io.write_sequential(handle, addr, n)
             remaining -= n
 
 
@@ -445,17 +359,14 @@ def _device_read_bytes() -> int:
 def _time_reads(path: Path, chunk_bytes: int, offsets: list[int]) -> tuple[float, int]:
     """Read one chunk at each offset. Returns (seconds, device bytes read in that
     window). Open/close are outside the timed window."""
-    got = wintypes.DWORD(0)
-    with _unbuffered_handle(path, write=False) as handle, _aligned_buffer(chunk_bytes) as (_buf, addr):
+    with (
+        unbuffered_io.unbuffered_handle(path, write=False) as handle,
+        unbuffered_io.aligned_buffer(chunk_bytes) as (_buf, addr),
+    ):
         device_before = _device_read_bytes()
         start = time.perf_counter()
         for offset in offsets:
-            if not _kernel32.SetFilePointerEx(handle, offset, None, _FILE_BEGIN):
-                _raise_last_win_error("SetFilePointerEx")
-            if not _kernel32.ReadFile(handle, addr, chunk_bytes, ctypes.byref(got), None):
-                _raise_last_win_error("ReadFile")
-            if got.value != chunk_bytes:
-                raise OSError(f"short read at offset {offset}: {got.value} of {chunk_bytes} bytes")
+            unbuffered_io.read_at(handle, addr, offset, chunk_bytes)
         seconds = time.perf_counter() - start
         return seconds, _device_read_bytes() - device_before
 

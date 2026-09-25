@@ -28,7 +28,9 @@ or eyeballed into existence.
 
 **Correctness rule.** ExpertRelay's output must match the reference (the
 full model held in RAM, no splitting/caching/prediction) token-for-token
-under greedy decoding. Enforce this with tests wherever possible. When the
+under greedy decoding. Since the int8 store, the reference is the **int8**
+model computed that way, not bf16: int8 changes outputs on its own, and its
+quality cost vs. bf16 is measured separately (see `docs/limitations.md`). Enforce this with tests wherever possible. When the
 real reference is too large/slow/network-dependent for an automated test
 (e.g. the actual 24-layer/60-expert Qwen1.5-MoE-A2.7B), the test's
 reference is a smaller synthetic model exercising the same code path — and

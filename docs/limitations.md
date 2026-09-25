@@ -10,7 +10,7 @@ each of these came to be.
 
 | Package | Status |
 |---|---|
-| `expertrelay.store` | Implemented: selective HF safetensors fetch + conversion to a reduced MindSpore checkpoint |
+| `expertrelay.store` | Implemented: selective HF safetensors fetch, the full-model int8 expert store (`build_store`, `expert_reader`), and the older reduced MindSpore checkpoint converter (`convert_qwen_moe`). Nothing loads the int8 store into the model yet |
 | `expertrelay.runtime` | Implemented: hand-rolled MoE model, wire protocol, expert-serving process |
 | `expertrelay.manager` | Minimal implementation: static two-device expert dispatch. **Not yet** the general hot/cold, multi-device Manager described in README |
 | `expertrelay.cache` | **Placeholder only** — no eviction, no hot/cold placement, no runtime cache. Today's "placement" is a static assignment fixed at conversion time (`--process-a-experts`/`--process-b-experts`) |
@@ -71,6 +71,52 @@ Qwen1.5-MoE-A2.7B checkpoint (fetched live from Hugging Face — the weight
   that's been through 2 produces real vocabulary tokens (confirmed: the
   prompt echoes back correctly) but not fluent continuations. This is
   expected, not a bug — see the full example in `docs/setup-notes.md` §3.
+
+## The int8 expert store (`expertrelay.store.build_store`)
+
+The full Qwen1.5-MoE-A2.7B, all 24 layers and 1,440 routed experts, stored
+on the SSD in int8 at a pinned Hugging Face revision. Format and numbers:
+`docs/expert-store.md`.
+
+- **int8 changes the model's outputs compared to bf16.** Weight-only,
+  symmetric, per-output-channel int8 (Krishnamoorthi 2018; the weight side
+  of Dettmers et al. 2022 LLM.int8(), without its outlier decomposition) is
+  lossy. Measured per-matrix reconstruction error is in
+  `docs/expert-store.md`. A model computed from these weights will not
+  reproduce bf16 logits exactly, and greedy decoding can pick different
+  tokens.
+- **What the correctness rule compares against, from here on.** CLAUDE.md's
+  rule (ExpertRelay output must match the reference token-for-token) now
+  uses as its reference **this same int8 model, computed with every expert
+  resident and no cache or prediction**. Caching, prefetching, prediction
+  and device splits must not change a single token relative to that. They
+  move bytes around; they don't change arithmetic. bf16 is NOT the
+  reference for that rule, because int8 alone would already break it.
+- **The quality cost of int8 vs. bf16 is a separate, not-yet-done
+  measurement.** It needs the bf16 model evaluated side by side (e.g.
+  perplexity on a fixed text set, plus a token-agreement rate). The bf16
+  model is 28.6 GB and doesn't fit in this machine's 8 GB RAM, so that
+  evaluation waits for a bigger machine or a streamed evaluator.
+  Reconstruction error (above) is a proxy, not a quality measurement.
+- **Kept in fp32, deliberately:** norms, biases, the router (`mlp.gate`)
+  and `shared_expert_gate`, about 12 MB total. That keeps the router itself
+  from adding quantization error to routing decisions. It does NOT make
+  expert selection identical to bf16: the router's input is the hidden
+  state produced by the int8 layers before it, so which experts get picked
+  can still differ from the bf16 model.
+- **Source integrity:** Hugging Face publishes a sha256 per shard file, not
+  per tensor, so byte ranges can't be checked against it without
+  downloading whole shards. What is checked: every range response has
+  exactly the requested length (a truncated or Range-ignoring response is
+  rejected and retried), transport is TLS, and the revision is pinned to a
+  commit hash. The store's own sha256s protect everything after the
+  download.
+- **Windows only** for the one-read loader (`expert_reader`), which uses
+  `FILE_FLAG_NO_BUFFERING`. The build itself is portable Python, but its
+  final verification pass uses the loader.
+- **Not wired into inference yet.** `runtime.moe_model` still runs the
+  reduced fp32 MindSpore checkpoint. Loading int8 experts from this store
+  into a forward pass is the next phase.
 
 ## The device split
 

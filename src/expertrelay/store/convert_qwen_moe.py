@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import urllib.request
 from pathlib import Path
 
 import mindspore as ms
@@ -40,17 +39,9 @@ from expertrelay.benchmarking import peak_process_rss_mb
 from expertrelay.memory_budget import enforce_ram_budget
 from expertrelay.paths import DEFAULT_MODEL_DIR
 from expertrelay.runtime.moe_model import ReducedQwenMoe, RemoteExpertShard
-from expertrelay.store.fetch_hf_tensors import fetch_index, fetch_tensors
+from expertrelay.store.fetch_hf_tensors import fetch_config, fetch_index, fetch_tensors
 
 DEFAULT_REPO = "Qwen/Qwen1.5-MoE-A2.7B"
-
-
-def fetch_config(repo_id: str, revision: str = "main") -> dict:
-    """Fetch the real HF config.json live -- architecture dimensions are
-    never hardcoded here, only the truncation choices (layers/experts) are."""
-    url = f"https://huggingface.co/{repo_id}/resolve/{revision}/config.json"
-    with urllib.request.urlopen(url, timeout=60) as resp:
-        return json.loads(resp.read())
 
 
 def build_wanted_tensor_names(num_layers: int, expert_ids: list[int]) -> list[str]:

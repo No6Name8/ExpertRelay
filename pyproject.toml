@@ -28,6 +28,7 @@ expertrelay-coordinator = "expertrelay.manager.coordinator:main"
 expertrelay-demo = "expertrelay.bench.run_local_split_demo:main"
 expertrelay-moe-sanity-check = "expertrelay.bench.moe_sanity_check:main"
 expertrelay-profile = "expertrelay.manager.profile:main"
+expertrelay-build-store = "expertrelay.store.build_store:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
