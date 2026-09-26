@@ -98,6 +98,12 @@ on the SSD in int8 at a pinned Hugging Face revision. Format and numbers:
   model is 28.6 GB and doesn't fit in this machine's 8 GB RAM, so that
   evaluation waits for a bigger machine or a streamed evaluator.
   Reconstruction error (above) is a proxy, not a quality measurement.
+- **Where int8 hurts most, by reconstruction error:** `lm_head` (1.92%,
+  the highest of any tensor in the store) and layer 0's attention
+  projections (1.4-1.7%). Routed experts are 0.83% on average, 1.03% at
+  worst. `lm_head` produces the logits greedy decoding picks from, so it
+  is the first tensor to keep in higher precision if int8 turns out to
+  change tokens too often. That's cheap: 311 MB more as fp16.
 - **Kept in fp32, deliberately:** norms, biases, the router (`mlp.gate`)
   and `shared_expert_gate`, about 12 MB total. That keeps the router itself
   from adding quantization error to routing decisions. It does NOT make

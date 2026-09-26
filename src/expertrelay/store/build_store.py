@@ -654,7 +654,8 @@ def format_store_report(manifest: dict) -> str:
         "Error is measured on the serialized bytes: each record is parsed back, dequantized, and compared",
         "with the original bf16 values. `rel_fro_error` = ||W - W_hat||_F / ||W||_F. "
         "`max_abs_error_over_scale` is the largest",
-        "per-element error in units of the row's step size (rounding bounds it at 0.5).",
+        "per-element error in units of the row's step size. Exact rounding bounds it at 0.5; values a few",
+        "millionths above that come from float32 rounding in the division, not from a quantization bug.",
         "",
         "| Routed experts (all three matrices per expert) | |",
         "|---|---|",
@@ -662,7 +663,7 @@ def format_store_report(manifest: dict) -> str:
         f"| Median relative error | {err['median_rel_fro_error']:.4%} |",
         f"| Max relative error | {err['max_rel_fro_error']:.4%} "
         f"(layer {err['worst_expert']['layer']}, expert {err['worst_expert']['expert']}) |",
-        f"| Max abs error / step | {err['max_abs_error_over_scale']:.4f} |",
+        f"| Max abs error / step | {err['max_abs_error_over_scale']:.6f} |",
         "",
         "| Per matrix | Mean rel. error | Max rel. error |",
         "|---|---|---|",
@@ -672,7 +673,7 @@ def format_store_report(manifest: dict) -> str:
         ],
         "",
         f"Resident int8 tensors ({res['tensors']}): mean relative error {res['mean_rel_fro_error']:.4%}, "
-        f"max {res['max_rel_fro_error']:.4%}, max abs error / step {res['max_abs_error_over_scale']:.4f}.",
+        f"max {res['max_rel_fro_error']:.4%}, max abs error / step {res['max_abs_error_over_scale']:.6f}.",
         "",
         "This is reconstruction error, not model quality. What int8 does to outputs vs. bf16 is a separate",
         "measurement that hasn't been done yet; see docs/limitations.md.",

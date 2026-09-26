@@ -1,0 +1,104 @@
+[
+  {
+    "label": "expert store build",
+    "timestamp": "2026-09-26T02:14:34Z",
+    "git_commit": "86f796e48623dd260e45c5605f75cabcde1735bd",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 1715384320
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 102119903232
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "source_repo": "Qwen/Qwen1.5-MoE-A2.7B",
+      "revision": "1a758c50ecb6350748b9ce0a99d2352fd9fc11c9"
+    },
+    "config": {
+      "workers": 4,
+      "max_block_elements": 4194304,
+      "quantization": {
+        "scheme": "weight-only int8, symmetric, per-output-channel (per-row) absmax",
+        "formula": "scale_r = max|W[r,:]| / 127; Q = clip(round_half_even(W / scale_r), -127, 127)",
+        "scales_dtype": "float32",
+        "applies_to": "routed experts and every 2-D resident matrix except the router and shared_expert_gate",
+        "kept_fp32": "norms, biases, mlp.gate (router), mlp.shared_expert_gate",
+        "references": [
+          "Krishnamoorthi 2018, arXiv:1806.08342",
+          "Dettmers et al. 2022 (LLM.int8()), arXiv:2208.07339"
+        ]
+      }
+    },
+    "summary": {
+      "sizes": {
+        "experts_bin_bytes": 12486574080,
+        "resident_bin_bytes": 1871822848,
+        "total_bytes": 14358396928,
+        "expert_record_bytes": 8671232,
+        "expert_weights_bytes": 8650752,
+        "expert_scales_bytes": 19456,
+        "source_checkpoint_bytes": 28631568384
+      },
+      "expert_quant_error": {
+        "experts": 1440,
+        "mean_rel_fro_error": 0.008299631388901971,
+        "median_rel_fro_error": 0.008272981766134335,
+        "max_rel_fro_error": 0.010285672020124191,
+        "worst_expert": {
+          "layer": 3,
+          "expert": 33
+        },
+        "max_abs_error_over_scale": 0.500001900365605,
+        "per_matrix": {
+          "gate_proj": {
+            "mean_rel_fro_error": 0.008353850175294823,
+            "max_rel_fro_error": 0.010992713508606526
+          },
+          "up_proj": {
+            "mean_rel_fro_error": 0.008362279775103862,
+            "max_rel_fro_error": 0.010303512923449309
+          },
+          "down_proj": {
+            "mean_rel_fro_error": 0.008180642058474056,
+            "max_rel_fro_error": 0.010882389827497587
+          }
+        }
+      },
+      "resident_int8_quant_error": {
+        "tensors": 170,
+        "max_rel_fro_error": 0.019225326389120428,
+        "mean_rel_fro_error": 0.00983991166444313,
+        "max_abs_error_over_scale": 0.500001900365605
+      },
+      "verification": {
+        "experts_checked": 1440,
+        "experts_bad": [],
+        "resident_checked": 339,
+        "resident_bad": [],
+        "ok": true
+      },
+      "peak_rss_mb_max_over_runs": 469.4016
+    }
+  }
+]
