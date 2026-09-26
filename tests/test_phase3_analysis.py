@@ -8,12 +8,15 @@ import pytest
 pytest.importorskip("matplotlib")
 
 from expertrelay.bench.phase3_analysis import (  # noqa: E402
+    APPENDED_SECTIONS_MARKER,
     Trace,
     access_stream,
     fate_accuracy,
     popularity,
+    prompt_halves,
     reuse_distances,
     temporal_locality,
+    upsert_doc_section,
 )
 from expertrelay.cache.simulator import INFINITE  # noqa: E402
 from expertrelay.runtime.expert_trace import (  # noqa: E402
@@ -88,3 +91,24 @@ def test_popularity_top10pct_share():
     pop = popularity([make_trace(rows)], None)
     assert pop["top10pct_experts"] == 1
     assert pop["top10pct_share_per_layer"][0] == pytest.approx(10 / 20)
+
+
+def test_prompt_halves_split_every_category():
+    order = [f"{c}_{n:02d}" for n in range(1, 5) for c in ("en", "ar", "code")]  # run order cycles categories
+    traces = [Trace({"prompt_id": pid, "category": pid.rsplit("_", 1)[0]}, None) for pid in order]
+    odd, even = prompt_halves(traces)
+    assert [t.header["prompt_id"] for t in odd] == ["en_01", "ar_01", "code_01", "en_03", "ar_03", "code_03"]
+    assert {t.category for t in even} == {"en", "ar", "code"}
+
+
+def test_upsert_doc_section(tmp_path):
+    doc = tmp_path / "doc.md"
+    head = "# Phase 3\n\nbody\n\n"
+    doc.write_text(head + APPENDED_SECTIONS_MARKER + "\n\nold unnamed output\n")
+    upsert_doc_section(doc, "a", "A1\n")
+    upsert_doc_section(doc, "b", "B1\n")
+    upsert_doc_section(doc, "a", "A2\n")
+    text = doc.read_text()
+    assert text.startswith(head + APPENDED_SECTIONS_MARKER)
+    assert "old unnamed output" not in text
+    assert text.index("A2") < text.index("B1") and "A1" not in text

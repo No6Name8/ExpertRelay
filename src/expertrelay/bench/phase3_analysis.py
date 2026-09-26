@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -61,6 +62,18 @@ class Trace:
     @property
     def category(self) -> str:
         return self.header["category"]
+
+    @property
+    def number(self) -> int:
+        """The prompt's number within its category (en_07 -> 7)."""
+        return int(self.header["prompt_id"].rsplit("_", 1)[1])
+
+
+def prompt_halves(traces: list[Trace]) -> list[list[Trace]]:
+    """Odd- and even-numbered prompts of EVERY category, each in run order.
+    Not every other prompt in run order: the run cycles through the
+    categories, so that would put whole categories on each side."""
+    return [[t for t in traces if t.number % 2 == 1], [t for t in traces if t.number % 2 == 0]]
 
 
 def load_traces(trace_dir: Path, prompt_order: list[str]) -> list[Trace]:
@@ -354,9 +367,10 @@ def analyze(traces: list[Trace], record_bytes: int) -> dict:
         }
 
     # Pinned hot sets never come from the data being replayed. "all" is two
-    # held-out halves (even/odd prompts in run order), each replayed warm with
-    # the other half's hot set; every policy sees those same two streams.
-    halves = [traces[0::2], traces[1::2]]
+    # held-out halves (odd/even prompt numbers within every category), each
+    # replayed warm with the other half's hot set; every policy sees those
+    # same two streams.
+    halves = prompt_halves(traces)
     runs = [simulate_hits(h, hot_keys_from(halves[1 - i])) for i, h in enumerate(halves) if h]
     curves_all = hit_rate_curves(runs)
     curves_by_cat = {
@@ -411,6 +425,18 @@ BASE_STORE = "qwen1.5-moe-a2.7b-int8"
 # Sections other scripts append to the doc (e.g. bench/phase35_prediction.py) start at
 # this line; regenerating the Phase 3 part keeps everything from it on.
 APPENDED_SECTIONS_MARKER = "<!-- appended sections: kept when this doc is regenerated -->"
+_SECTION_RE = re.compile(r"<!-- section:(\S+) -->\n(.*?)<!-- /section:\1 -->", re.S)
+
+
+def upsert_doc_section(path: Path, name: str, text: str) -> None:
+    """Replace (or append) one named generated section after the marker.
+    Each generator owns one name. Anything after the marker that isn't inside
+    a named section can only be older generator output, and is dropped."""
+    head, _, tail = path.read_text(encoding="utf-8").partition(APPENDED_SECTIONS_MARKER)
+    sections = dict(_SECTION_RE.findall(tail))
+    sections[name] = text
+    body = "".join(f"<!-- section:{n} -->\n{t}<!-- /section:{n} -->\n\n" for n, t in sections.items())
+    path.write_text(head.rstrip("\n") + "\n\n" + APPENDED_SECTIONS_MARKER + "\n\n" + body, encoding="utf-8")
 
 
 def doc_path_for(store: str) -> Path:

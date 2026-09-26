@@ -47,10 +47,10 @@ import numpy as np
 
 from expertrelay import REPO_ROOT
 from expertrelay.bench.phase3_analysis import (
-    APPENDED_SECTIONS_MARKER,
     doc_path_for,
     load_traces,
     phase2_speeds,
+    upsert_doc_section,
 )
 from expertrelay.bench.phase3_traces import DEFAULT_CONFIG, round_robin, trace_dir_for
 from expertrelay.benchmarking import append_benchmark_record, base_record, peak_process_rss_mb
@@ -603,11 +603,7 @@ def render(record: dict) -> Path:
     charts["calibration"] = f"phase3/{store}/phase35_calibration.png"
 
     path = doc_path_for(store)
-    text = path.read_text(encoding="utf-8")
-    head = text.split(APPENDED_SECTIONS_MARKER)[0].rstrip("\n")
-    path.write_text(
-        head + "\n\n" + APPENDED_SECTIONS_MARKER + "\n\n" + format_markdown(record, charts), encoding="utf-8"
-    )
+    upsert_doc_section(path, "phase35", format_markdown(record, charts))
     return path
 
 

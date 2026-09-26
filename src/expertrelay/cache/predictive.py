@@ -23,9 +23,14 @@ Policies (capacity in experts, all equal-size):
               touched. A prefetch only happens if the predicted
               probability beats the eviction victim's.
 
+Pinned experts (the runtime's --pin-layer0) are loaded before the replay
+starts, take part of the capacity, and are never evicted. `min_prob` skips
+predicted experts below that probability, as the runtime's prefetcher does.
+
 The current access's own experts, and the experts being prefetched
 together, are never evicted to make room for each other; this needs
-capacity >= experts per layer + prefetch_k, which simulate() enforces.
+capacity >= pinned + experts per layer + prefetch_k, which simulate()
+enforces.
 
 With prefetching, a policy can beat Belady's hit rate: Belady is optimal
 only among caches that load on demand. The extra reads it takes to do so
@@ -83,6 +88,8 @@ class _Cache:
         capacity: int,
         policy: str,
         reuse: ReuseModel | None,
+        pinned: list[int],
+        min_prob: float,
     ) -> None:
         self.L, self.E, self.capacity, self.policy, self.reuse = (
             num_layers,
@@ -91,9 +98,13 @@ class _Cache:
             policy,
             reuse,
         )
+        self.min_prob = min_prob
         n = num_layers * num_experts
         self.cached = np.zeros(n, dtype=bool)
-        self.n_cached = 0
+        self.pinned = np.zeros(n, dtype=bool)
+        self.pinned[pinned] = True
+        self.cached[pinned] = True
+        self.n_cached = int(self.pinned.sum())
         self.stamp = np.zeros(n, dtype=np.int64)
         self.clock = 1
         self.prefetched = np.zeros(n, dtype=bool)  # loaded by a prefetch, not accessed since
@@ -118,7 +129,7 @@ class _Cache:
         return p.reshape(-1)
 
     def victim(self, protected: np.ndarray, pri: np.ndarray | None) -> int | None:
-        cand = np.flatnonzero(self.cached & ~protected)
+        cand = np.flatnonzero(self.cached & ~protected & ~self.pinned)
         if not len(cand):
             return None
         if pri is None:
@@ -174,6 +185,7 @@ class _Cache:
         if prefetch_k <= 0 or self.capacity <= 0:
             return 0
         top = np.argsort(-ev.probs, kind="stable")[:prefetch_k]
+        top = top[ev.probs[top] >= self.min_prob]
         keys = ev.layer * self.E + top.astype(np.int64)
         protected = np.zeros_like(self.cached)
         protected[keys] = True
@@ -213,14 +225,18 @@ def simulate(
     policy: str,
     prefetch_k: int = 0,
     reuse: ReuseModel | None = None,
+    pinned: list[int] = (),
+    min_prob: float = 0.0,
 ) -> SimResult:
+    """`pinned`: keys (layer * num_experts + expert) held for the whole replay."""
     if policy not in ("lru", "predictive"):
         raise ValueError(f"unknown policy {policy!r}")
     if policy == "predictive" and reuse is None:
         raise ValueError("the predictive policy needs a fitted ReuseModel")
-    if 0 < capacity < num_experts + prefetch_k:
-        raise ValueError(f"capacity {capacity} < experts per layer + prefetch_k ({num_experts + prefetch_k})")
-    cache = _Cache(num_layers, num_experts, capacity, policy, reuse)
+    need = len(pinned) + num_experts + prefetch_k
+    if (capacity > 0 or pinned) and capacity < need:
+        raise ValueError(f"capacity {capacity} < pinned + experts per layer + prefetch_k ({need})")
+    cache = _Cache(num_layers, num_experts, capacity, policy, reuse, list(pinned), min_prob)
     pending = np.zeros(num_layers, dtype=np.int64)
     layer, decode, accesses, hits, pf = [], [], [], [], []
     for ev in events:

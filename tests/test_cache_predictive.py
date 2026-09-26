@@ -119,3 +119,27 @@ def test_overlapped_decode_seconds_by_hand():
     seconds, tokens = overlapped_decode_seconds(res, compute_s_per_layer=1.0, read_s=0.5)
     assert seconds == pytest.approx(5.0)
     assert tokens == 1
+
+
+def test_pinned_keys_never_miss_and_count_against_capacity():
+    rng = np.random.default_rng(3)
+    num_layers, num_experts = 2, 4
+    events = [
+        acc(int(k) // num_experts, [int(k) % num_experts], i) for i, k in enumerate(rng.integers(0, 8, 300))
+    ]
+    pinned = [0, 1, 2, 3]  # all of layer 0
+    res = simulate(
+        events, num_layers=num_layers, num_experts=num_experts, capacity=9, policy="lru", pinned=pinned
+    )
+    layer0 = res.layer == 0
+    assert (res.hits[layer0] == res.accesses[layer0]).all()
+    with pytest.raises(ValueError):
+        simulate(events, num_layers=2, num_experts=4, capacity=7, policy="lru", pinned=pinned)
+
+
+def test_min_prob_skips_unlikely_prefetches():
+    probs = np.array([0.9, 0.04, 0.03, 0.03], dtype=np.float32)
+    events = [Predict(1, probs), acc(1, [0], 0)]
+    res = simulate(events, num_layers=2, num_experts=4, capacity=7, policy="lru", prefetch_k=3, min_prob=0.05)
+    assert res.prefetch_reads.tolist() == [1]
+    assert res.hits.tolist() == [1]
