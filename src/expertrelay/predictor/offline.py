@@ -120,6 +120,22 @@ class IsotonicCalibrator:
             raise RuntimeError("fit() first")
         return self.values[np.searchsorted(self.edges, scores, side="right")].astype(np.float32)
 
+    def to_dict(self) -> dict:
+        if self.edges is None or self.values is None:
+            raise RuntimeError("fit() first")
+        return {"num_bins": self.num_bins, "edges": self.edges.tolist(), "values": self.values.tolist()}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> IsotonicCalibrator:
+        cal = cls(d["num_bins"])
+        cal.edges = np.asarray(d["edges"], dtype=np.float64)
+        cal.values = np.asarray(d["values"], dtype=np.float64)
+        if len(cal.values) != len(cal.edges) + 1 or (np.diff(cal.values) < 0).any():
+            raise ValueError(
+                "not a fitted isotonic calibrator (values must be one longer than edges, nondecreasing)"
+            )
+        return cal
+
 
 def expected_calibration_error(probs: np.ndarray, labels: np.ndarray, num_bins: int = 20) -> float:
     """Equal-width-bin ECE: sum over bins of (bin share) * |observed rate -

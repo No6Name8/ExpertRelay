@@ -18,15 +18,23 @@ is also what the reference check compares against (bench.reference_check):
     once per forward call, not once per token
 Weights are int8 with per-row scales (store.quantize); activations and
 accumulation are f32.
+
+Prefetching (optional, needs an expert source with a cache): right after
+a layer's router input is ready, the NEXT layer's router is applied to it
+(the Fate-style guess, Fang et al., arXiv:2502.12224) and the chosen
+experts start loading in the background (predictor.prefetch_policy,
+cache.expert_cache). It only decides which bytes are read early; the
+arithmetic, and so every output, is the same with it on or off.
 """
 
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 import numpy as np
 
+from expertrelay.predictor.prefetch_policy import PrefetchPolicy
 from expertrelay.runtime.backends import Backend, NumpyBackend
 from expertrelay.runtime.expert_trace import PHASE_DECODE, PHASE_PREFILL, ExpertTraceWriter
 from expertrelay.runtime.weights import EMBEDDING, ExpertSource, Int8Matrix, ResidentWeights
@@ -149,16 +157,60 @@ def _top_k_desc(probs: np.ndarray, k: int) -> np.ndarray:
 
 @dataclass
 class StepTimings:
-    """Where one forward call's wall time went."""
+    """Where one forward call's wall time went, and what the expert source
+    did for it.
+
+    `expert_read_seconds` is time the forward pass was BLOCKED on expert
+    bytes: its own reads plus waiting for background reads in flight.
+    Background reads that finished in time cost nothing here. Compute time
+    is everything else. Per-layer lists split each layer's time into
+    attention (norm + attention block), MoE compute (router, Fate guess,
+    experts, shared expert; blocked time excluded), and blocked-on-reads.
+    Timed with perf_counter around synchronous calls: meaningful for the
+    numpy backend and for any backend that returns host arrays.
+
+    Cache counters are 0 for sources without a cache. Background events
+    (prefetch reads completing, wasted evictions) count in the call during
+    which they happened."""
 
     total_seconds: float = 0.0
     expert_read_seconds: float = 0.0
-    expert_loads: int = 0
-    expert_bytes: int = 0
+    expert_loads: int = 0  # experts the forward pass used
+    expert_bytes: int = 0  # bytes of its blocking reads
+    demand_reads: int = 0
+    cache_hits: int = 0
+    prefetch_hits: int = 0
+    prefetch_waits: int = 0
+    prefetches_issued: int = 0
+    prefetches_skipped_low_confidence: int = 0
+    prefetch_reads: int = 0
+    prefetch_bytes: int = 0
+    prefetches_wasted: int = 0
+    prefetches_cancelled: int = 0
+    attention_seconds: list[float] = field(default_factory=list)
+    moe_compute_seconds: list[float] = field(default_factory=list)
+    read_wait_seconds: list[float] = field(default_factory=list)
 
     @property
     def compute_seconds(self) -> float:
         return self.total_seconds - self.expert_read_seconds
+
+
+# SourceStats field -> StepTimings field, for the per-call deltas
+_STAT_FIELDS = {
+    "loads": "expert_loads",
+    "bytes_read": "expert_bytes",
+    "read_seconds": "expert_read_seconds",
+    "demand_reads": "demand_reads",
+    "cache_hits": "cache_hits",
+    "prefetch_hits": "prefetch_hits",
+    "prefetch_waits": "prefetch_waits",
+    "prefetches_issued": "prefetches_issued",
+    "prefetch_reads": "prefetch_reads",
+    "prefetch_bytes": "prefetch_bytes",
+    "prefetches_wasted": "prefetches_wasted",
+    "prefetches_cancelled": "prefetches_cancelled",
+}
 
 
 class QwenMoe:
@@ -168,11 +220,15 @@ class QwenMoe:
         resident: ResidentWeights,
         experts: ExpertSource,
         backend: Backend | None = None,
+        prefetcher: PrefetchPolicy | None = None,
     ):
         self.c = config
         self.resident = resident
         self.experts = experts
         self.backend = backend or NumpyBackend()
+        self.prefetcher = prefetcher
+        # The on/off switch. Safe to flip between calls: outputs don't depend on it.
+        self.prefetch_enabled = prefetcher is not None
 
     def _w(self, name: str):
         return self.resident[name]
@@ -232,32 +288,40 @@ class QwenMoe:
             weights = weights / weights.sum(axis=-1, keepdims=True)
         if trace is not None:
             trace.selected_experts.append(selected.copy())
-        if expert_trace is not None:
+        prefetch = (
+            self.prefetch_enabled
+            and self.prefetcher is not None
+            and self.experts.supports_prefetch
+            and layer + 1 < c.num_layers
+        )
+        fate = None
+        if (prefetch or expert_trace is not None) and layer + 1 < c.num_layers:
             # Fate-style prediction (see runtime.expert_trace for the citation):
-            # the NEXT layer's router applied to THIS layer's gate input. Only
-            # the trace uses it; it doesn't feed back into the forward pass.
-            fate = (
-                self._linear(f"model.layers.{layer + 1}.mlp.gate.weight", h)
-                if layer + 1 < c.num_layers
-                else None
+            # the NEXT layer's router applied to THIS layer's gate input. It
+            # never feeds back into this forward pass's arithmetic.
+            fate = self._linear(f"model.layers.{layer + 1}.mlp.gate.weight", h)
+        if prefetch:
+            choice = self.prefetcher.choose(fate)
+            timings.prefetches_skipped_low_confidence += choice.skipped_low_confidence
+            # this layer's experts are about to be used: keep them
+            self.experts.prefetch(
+                layer + 1, choice.experts, keep=[(layer, int(e)) for e in np.unique(selected)]
             )
+        if expert_trace is not None:
             expert_trace.layer(layer, router_logits, selected, weights, fate)
 
         routed = np.zeros((n, c.hidden_size), dtype=np.float32)
         for expert in np.unique(selected):
             token_idx, slot = np.nonzero(selected == expert)
-            before_s, before_b = self.experts.stats.read_seconds, self.experts.stats.bytes_read
             w = self.experts.load(layer, int(expert))
-            timings.expert_read_seconds += self.experts.stats.read_seconds - before_s
-            timings.expert_bytes += self.experts.stats.bytes_read - before_b
-            timings.expert_loads += 1
             x = h[token_idx]
             y = self._expert_linear(
                 w["down_proj"],
                 _silu(self._expert_linear(w["gate_proj"], x)) * self._expert_linear(w["up_proj"], x),
             )
             np.add.at(routed, token_idx, y * weights[token_idx, slot][:, None])
-            del w  # nothing kept: the next use of this expert reads it again
+            del w  # views into the source's buffer: valid only until the next load
+        self.experts.end_layer(layer)
 
         shared = self._linear(
             p + "shared_expert.down_proj.weight",
@@ -280,6 +344,7 @@ class QwenMoe:
         Returns logits for the last position (or all positions) and timings."""
         t0 = time.perf_counter()
         timings = StepTimings()
+        stats0 = asdict(self.experts.stats)
         c = self.c
         token_ids = np.asarray(token_ids, dtype=np.int64)
         emb = self._w(EMBEDDING)
@@ -295,10 +360,17 @@ class QwenMoe:
         cos, sin = rope_tables(positions, c.head_dim, c.rope_theta)
         for layer in range(c.num_layers):
             p = f"model.layers.{layer}."
+            t_layer = time.perf_counter()
             h = rms_norm(x, self._w(p + "input_layernorm.weight"), c.rms_norm_eps)
             x = x + self._attention(layer, h, cos, sin, cache)
+            t_moe = time.perf_counter()
+            timings.attention_seconds.append(t_moe - t_layer)
+            waited = self.experts.stats.read_seconds
             h = rms_norm(x, self._w(p + "post_attention_layernorm.weight"), c.rms_norm_eps)
             x = x + self._moe(layer, h, timings, trace, expert_trace)
+            waited = self.experts.stats.read_seconds - waited
+            timings.read_wait_seconds.append(waited)
+            timings.moe_compute_seconds.append(time.perf_counter() - t_moe - waited)
             if trace is not None:
                 trace.hidden_after_layer.append(x.copy())
         cache.length += len(token_ids)
@@ -309,5 +381,8 @@ class QwenMoe:
         if trace is not None:
             trace.final_hidden = final.copy()
         logits = self._linear("lm_head.weight", final)
+        stats1 = asdict(self.experts.stats)
+        for src, dst in _STAT_FIELDS.items():
+            setattr(timings, dst, stats1[src] - stats0[src])
         timings.total_seconds = time.perf_counter() - t0
         return (logits if all_logits else logits[0]), timings

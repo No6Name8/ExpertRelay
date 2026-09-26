@@ -134,7 +134,11 @@ def test_backend_independent_modules_never_load_a_backend():
         "expertrelay.store.expert_reader",
         "expertrelay.runtime.weights",
         "expertrelay.cache",
+        "expertrelay.cache.expert_cache",
+        "expertrelay.cache.predictive",
         "expertrelay.predictor",
+        "expertrelay.predictor.offline",
+        "expertrelay.predictor.prefetch_policy",
         "expertrelay.manager.profile",
         "expertrelay.manager.backend_selection",
     ]

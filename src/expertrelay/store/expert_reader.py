@@ -43,8 +43,11 @@ class ExpertWeights:
 
 
 class ExpertStoreReader:
-    """Use as a context manager: holds one open unbuffered handle and one
-    record-sized aligned buffer, reused for every read."""
+    """Use as a context manager: holds one open unbuffered handle. read_raw()
+    reads into one record-sized aligned buffer of its own, allocated on first
+    use and reused; read_into() reads into a caller's buffer instead (the
+    expert cache's slots), so a reader used only that way allocates nothing.
+    One handle has one file position: use one reader per thread."""
 
     def __init__(self, store_dir: Path):
         self.store_dir = Path(store_dir)
@@ -60,9 +63,6 @@ class ExpertStoreReader:
         self._stack = ExitStack()
         self._handle = self._stack.enter_context(
             unbuffered_io.unbuffered_handle(self.store_dir / EXPERTS_BIN, write=False)
-        )
-        self._buf, self._addr = self._stack.enter_context(
-            unbuffered_io.aligned_buffer(self.layout.record_size)
         )
         return self
 
@@ -81,9 +81,23 @@ class ExpertStoreReader:
         valid until the next read (the buffer is reused)."""
         if self._handle is None:
             raise RuntimeError("ExpertStoreReader must be used as a context manager")
+        if self._buf is None:
+            self._buf, self._addr = self._stack.enter_context(
+                unbuffered_io.aligned_buffer(self.layout.record_size)
+            )
         e = self.entry(layer, expert)
         unbuffered_io.read_at(self._handle, self._addr, e.offset, e.size)
         return memoryview(self._buf)[: e.size]
+
+    def read_into(self, layer: int, expert: int, address: int) -> int:
+        """One unbuffered read of the record into the aligned buffer at
+        `address`, which must hold at least layout.record_size bytes.
+        Returns the bytes read."""
+        if self._handle is None:
+            raise RuntimeError("ExpertStoreReader must be used as a context manager")
+        e = self.entry(layer, expert)
+        unbuffered_io.read_at(self._handle, address, e.offset, e.size)
+        return e.size
 
     def read(self, layer: int, expert: int) -> ExpertWeights:
         raw = self.read_raw(layer, expert)

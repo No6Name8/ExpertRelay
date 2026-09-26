@@ -84,8 +84,8 @@ Don't batch unrelated changes into one commit.
 ```
 src/expertrelay/
   store/      persistence: fetching + converting expert weights (HF Hub -> local checkpoint)
-  cache/      hot/cold expert placement + eviction across RAM/SSD/network (placeholder, see limitations.md)
-  predictor/  predicting which expert will be needed next (placeholder, see limitations.md)
+  cache/      expert placement + eviction: the runtime's RAM cache, and offline simulators (see limitations.md)
+  predictor/  predicting which expert will be needed next: the prefetch policy, offline tools (see limitations.md)
   manager/    machine profile, compute-backend selection; later: device placement and dispatch
   runtime/    the MoE forward pass and the compute backends (numpy, MindSpore)
   bench/      benchmark and demo scripts -- each writes to benchmarks/results/

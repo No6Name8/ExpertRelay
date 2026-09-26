@@ -2,6 +2,8 @@
 
     python -m expertrelay.runtime.generate --prompt "The capital of France is"
     python -m expertrelay.runtime.generate --all-prompts --json-out out.json --source mmap
+    python -m expertrelay.runtime.generate --config configs/runtime_cache.json --source cached \
+        --prompt "..." [--no-prefetch] [--pin-layer0] [--cache-gb 1.66] [--prefetch-k 8]
 
 For every forward call (the prompt prefill, then one call per new token) it
 records wall time, time spent reading experts from disk, expert bytes read,
@@ -9,6 +11,14 @@ and bytes the OS actually read from physical disks. Compute time is wall
 time minus expert read time. With `--source mmap` the reads happen as page
 faults inside the matmuls, so they land in "compute" and only the device
 byte count shows them.
+
+With `--source cached` experts stay in an LRU cache in RAM (budget
+`expert_cache_gb`), optionally with every layer-0 expert pinned, and the
+prefetcher loads the Fate-guessed experts for the next layer in the
+background (`--prefetch/--no-prefetch`: the demo's on/off switch). Each
+step then also records cache hits, prefetch hits, waits for in-flight
+prefetches, wasted and cancelled prefetches, and per-layer attention / MoE
+compute / blocked-on-reads time.
 
 Generation is greedy and always produces exactly max_new_tokens: EOS does
 not stop it, so every run does the same amount of work.
@@ -20,20 +30,22 @@ import argparse
 import json
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import numpy as np
 
 from expertrelay import REPO_ROOT
 from expertrelay.benchmarking import peak_process_rss_mb
+from expertrelay.cache.expert_cache import CachedExpertSource, slots_for
 from expertrelay.manager.backend_selection import BackendChoice, select_backend
 from expertrelay.manager.profile import collect_machine_profile, device_read_bytes, measure_memory
 from expertrelay.memory_budget import enforce_ram_budget
+from expertrelay.predictor.prefetch_policy import PrefetchPolicy, load_calibrator
 from expertrelay.runtime.backends import BACKEND_NAMES, make_backend
 from expertrelay.runtime.expert_trace import ExpertTraceWriter
 from expertrelay.runtime.int8_linear import BLOCK_ROWS_PREFILL
-from expertrelay.runtime.qwen_moe import KVCache, ModelConfig, QwenMoe
+from expertrelay.runtime.qwen_moe import KVCache, ModelConfig, QwenMoe, StepTimings
 from expertrelay.runtime.weights import (
     EMBEDDING,
     RESIDENT_INDEX,
@@ -51,6 +63,7 @@ SOURCES: dict[str, type[ExpertSource]] = {
     "unbuffered": UnbufferedExpertSource,
     "mmap": MmapExpertSource,
     "ram": RamExpertSource,
+    "cached": CachedExpertSource,
 }
 # Interpreter + numpy + tokenizers, measured on the dev machine before any
 # weights are loaded (~150 MB), rounded up.
@@ -62,22 +75,47 @@ MINDSPORE_BACKEND_BYTES = 256 * 2**20
 
 @dataclass(frozen=True)
 class RuntimeConfig:
+    """The cache/prefetch fields only matter with --source cached, and are
+    optional in the file, so the Phase 2/3 configs load unchanged."""
+
     memory_budget_gb: float
     max_seq: int
     max_new_tokens: int
     prompts_file: Path
     store_dir: Path
+    expert_cache_gb: float = 0.0
+    prefetch: bool = False
+    prefetch_k: int = 8
+    prefetch_min_probability: float = 0.0
+    prefetch_calibration: Path | None = None
+    pin_layer0: bool = False
+    io_threads: int = 1
 
     @classmethod
     def load(cls, path: Path = DEFAULT_RUNTIME_CONFIG) -> RuntimeConfig:
         d = json.loads(Path(path).read_text())
+        calibration = d.get("prefetch_calibration")
         return cls(
             memory_budget_gb=d["memory_budget_gb"],
             max_seq=d["max_seq"],
             max_new_tokens=d["max_new_tokens"],
             prompts_file=REPO_ROOT / d["prompts_file"],
             store_dir=REPO_ROOT / d["store_dir"],
+            expert_cache_gb=d.get("expert_cache_gb", 0.0),
+            prefetch=d.get("prefetch", False),
+            prefetch_k=d.get("prefetch_k", 8),
+            prefetch_min_probability=d.get("prefetch_min_probability", 0.0),
+            prefetch_calibration=REPO_ROOT / calibration if calibration else None,
+            pin_layer0=d.get("pin_layer0", False),
+            io_threads=d.get("io_threads", 1),
         )
+
+    def cache_slots_needed(self, config: ModelConfig) -> tuple[int, int]:
+        """(pinned, free) slots the cache must hold. Free = one layer's experts
+        in use + one prefetch batch + 1. Counted even with prefetch off, so
+        the switch can be turned on mid-run."""
+        pinned = config.num_experts if self.pin_layer0 else 0
+        return pinned, config.top_k + self.prefetch_k + 1
 
 
 def model_config(store_dir: Path) -> ModelConfig:
@@ -85,7 +123,12 @@ def model_config(store_dir: Path) -> ModelConfig:
 
 
 def estimate_ram_bytes(
-    store_dir: Path, config: ModelConfig, max_seq: int, source: str, backend: str = "numpy"
+    store_dir: Path,
+    config: ModelConfig,
+    max_seq: int,
+    source: str,
+    backend: str = "numpy",
+    expert_cache_gb: float = 0.0,
 ) -> int:
     """Upper-bound estimate of this process's RAM for a run, used to enforce
     the budget BEFORE loading anything. Every term is computed from real
@@ -99,6 +142,8 @@ def estimate_ram_bytes(
         "unbuffered": record,  # one aligned read buffer; experts are used as views into it
         "mmap": 0,  # page cache, not process-private memory
         "ram": config.num_layers * config.num_experts * record,
+        # the slot pool, allocated once; reads go straight into slots
+        "cached": slots_for(int(expert_cache_gb * 1e9), record) * record,
     }[source]
     widest = max(config.hidden_size, max(e.shape[-1] for e in entries if len(e.shape) == 2))
     tallest = max(e.shape[0] for e in entries if len(e.shape) == 2 and e.name != EMBEDDING)
@@ -123,32 +168,72 @@ def load_model(
     max_seq: int,
     budget_gb: float | None,
     backend: BackendChoice | None = None,
+    rt: RuntimeConfig | None = None,
 ) -> tuple[QwenMoe, dict]:
     """budget_gb=None disables enforcement. Only the "normal load" baseline
     does that, precisely to show what happens without it. backend=None lets
-    the Manager choose from this machine's profile."""
+    the Manager choose from this machine's profile. `rt` carries the cache
+    and prefetch settings; required for source "cached"."""
     choice = backend or select_backend(collect_machine_profile(measure_disk=False))
     config = model_config(store_dir)
-    estimate = estimate_ram_bytes(store_dir, config, max_seq, source, choice.name)
+    if source == "cached" and rt is None:
+        raise ValueError("source 'cached' needs the runtime config's cache settings")
+    cache_gb = rt.expert_cache_gb if source == "cached" else 0.0
+    estimate = estimate_ram_bytes(store_dir, config, max_seq, source, choice.name, cache_gb)
     if budget_gb is not None:
         enforce_ram_budget(estimate, budget_gb, f"running with --source {source} --backend {choice.name}")
     t = time.perf_counter()
     resident = ResidentWeights.load(store_dir, mmap_everything=(source == "mmap"))
-    experts = SOURCES[source](store_dir)
+    info: dict = {"source": source}
+    prefetcher = None
+    if source == "cached":
+        pinned, free = rt.cache_slots_needed(config)
+        experts = CachedExpertSource(
+            store_dir,
+            capacity_bytes=int(cache_gb * 1e9),
+            pinned=[(0, e) for e in range(pinned)],
+            io_threads=rt.io_threads,
+            min_free_slots=free,
+        )
+        calibrator, provenance = (
+            load_calibrator(rt.prefetch_calibration) if rt.prefetch_calibration else (None, None)
+        )
+        prefetcher = PrefetchPolicy(rt.prefetch_k, rt.prefetch_min_probability, calibrator)
+        info["cache"] = {
+            "budget_gb": cache_gb,
+            "slots": experts.num_slots,
+            "bytes": experts.capacity_bytes,
+            "pinned_layer0": rt.pin_layer0,
+            "io_threads": rt.io_threads,
+            "prefetch": rt.prefetch,
+            "prefetch_k": rt.prefetch_k,
+            "prefetch_min_probability": rt.prefetch_min_probability,
+            "calibration": provenance,
+            # a calibration fitted on another store's traces is a simplification
+            "calibration_store_matches": provenance is None or provenance["store"] == Path(store_dir).name,
+        }
+    else:
+        experts = SOURCES[source](store_dir)
     compute = make_backend(choice.name, choice.device)
-    info = {
-        "source": source,
-        "backend": asdict(choice),
-        "estimated_ram_bytes": estimate,
-        "budget_gb": budget_gb,
-        "resident_ram_bytes": resident.ram_bytes,
-        "load_seconds": time.perf_counter() - t,
-    }
-    return QwenMoe(config, resident, experts, compute), info
+    info.update(
+        {
+            "backend": asdict(choice),
+            "estimated_ram_bytes": estimate,
+            "budget_gb": budget_gb,
+            "resident_ram_bytes": resident.ram_bytes,
+            "load_seconds": time.perf_counter() - t,
+        }
+    )
+    model = QwenMoe(config, resident, experts, compute, prefetcher)
+    model.prefetch_enabled = bool(rt and rt.prefetch and prefetcher is not None)
+    return model, info
 
 
 @dataclass
 class StepRecord:
+    """One forward call: StepTimings' fields (see runtime.qwen_moe), plus
+    what the OS says was read from physical disks."""
+
     kind: str  # "prefill" or "decode"
     tokens: int
     total_seconds: float
@@ -157,6 +242,26 @@ class StepRecord:
     expert_loads: int
     expert_bytes: int
     device_bytes: int
+    demand_reads: int = 0
+    cache_hits: int = 0
+    prefetch_hits: int = 0
+    prefetch_waits: int = 0
+    prefetches_issued: int = 0
+    prefetches_skipped_low_confidence: int = 0
+    prefetch_reads: int = 0
+    prefetch_bytes: int = 0
+    prefetches_wasted: int = 0
+    prefetches_cancelled: int = 0
+    attention_seconds: list[float] | None = None
+    moe_compute_seconds: list[float] | None = None
+    read_wait_seconds: list[float] | None = None
+
+    @classmethod
+    def from_timings(cls, kind: str, tokens: int, t: StepTimings, device_bytes: int) -> StepRecord:
+        fields = {k: v for k, v in asdict(t).items() if k in cls.__dataclass_fields__}
+        return cls(
+            kind=kind, tokens=tokens, compute_seconds=t.compute_seconds, device_bytes=device_bytes, **fields
+        )
 
 
 def generate(
@@ -176,15 +281,8 @@ def generate(
         dev0 = device_read_bytes()
         logits, t = model.forward(np.asarray(feed), cache, expert_trace=expert_trace)
         steps.append(
-            StepRecord(
-                kind="prefill" if i == 0 else "decode",
-                tokens=len(feed),
-                total_seconds=t.total_seconds,
-                expert_read_seconds=t.expert_read_seconds,
-                compute_seconds=t.compute_seconds,
-                expert_loads=t.expert_loads,
-                expert_bytes=t.expert_bytes,
-                device_bytes=device_read_bytes() - dev0,
+            StepRecord.from_timings(
+                "prefill" if i == 0 else "decode", len(feed), t, device_read_bytes() - dev0
             )
         )
         nxt = int(np.argmax(logits))
@@ -203,7 +301,7 @@ def run_prompts(
 ) -> dict:
     """Load once, generate for every prompt, return everything as plain data."""
     free_at_start = measure_memory().available_bytes
-    model, info = load_model(store_dir, source, rt.max_seq, budget_gb, backend)
+    model, info = load_model(store_dir, source, rt.max_seq, budget_gb, backend, rt)
     tokenizer = load_tokenizer(store_dir)
     results = []
     for p in prompts:
@@ -247,11 +345,28 @@ def main() -> None:
         "--no-budget", action="store_true", help="disable RAM budget enforcement (normal-load baseline)"
     )
     ap.add_argument("--json-out", type=Path, default=None)
+    cache = ap.add_argument_group("expert cache and prefetch (--source cached; defaults from the config)")
+    cache.add_argument("--cache-gb", type=float, default=None, help="RAM for cached experts")
+    cache.add_argument(
+        "--prefetch", action=argparse.BooleanOptionalAction, default=None, help="the prediction on/off switch"
+    )
+    cache.add_argument("--prefetch-k", type=int, default=None)
+    cache.add_argument("--prefetch-min-probability", type=float, default=None)
+    cache.add_argument("--pin-layer0", action=argparse.BooleanOptionalAction, default=None)
+    cache.add_argument("--io-threads", type=int, default=None)
     args = ap.parse_args()
 
     rt = RuntimeConfig.load(args.config)
-    if args.max_new_tokens is not None:
-        rt = RuntimeConfig(**{**asdict(rt), "max_new_tokens": args.max_new_tokens})
+    overrides = {
+        "max_new_tokens": args.max_new_tokens,
+        "expert_cache_gb": args.cache_gb,
+        "prefetch": args.prefetch,
+        "prefetch_k": args.prefetch_k,
+        "prefetch_min_probability": args.prefetch_min_probability,
+        "pin_layer0": args.pin_layer0,
+        "io_threads": args.io_threads,
+    }
+    rt = replace(rt, **{k: v for k, v in overrides.items() if v is not None})
     store_dir = args.store_dir or rt.store_dir
     if args.all_prompts:
         prompts = json.loads(rt.prompts_file.read_text(encoding="utf-8"))["prompts"]

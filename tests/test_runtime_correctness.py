@@ -8,6 +8,11 @@ ours), and everything memory-mapped (the OS-paging baseline). Greedy
 decoding must pick the same tokens, and the logits must be bit-identical,
 because the arithmetic is the same and only the byte source differs.
 
+The expert cache and the background prefetcher (cache.expert_cache,
+predictor.prefetch_policy) are held to the same rule: on or off, at any
+cache size, pinned or not, with any number of I/O threads, the output must
+be bit-identical to the reference.
+
 Uses a tiny random model through the real store builder. The same property
 on the real 24-layer store is checked by bench/phase2_baselines.py, which
 records every baseline's generated tokens side by side.
@@ -21,6 +26,8 @@ import numpy as np
 import pytest
 from store_helpers import build_test_store, random_checkpoint
 
+from expertrelay.cache.expert_cache import CachedExpertSource
+from expertrelay.predictor.prefetch_policy import PrefetchPolicy
 from expertrelay.runtime.generate import generate, model_config
 from expertrelay.runtime.qwen_moe import KVCache, QwenMoe
 from expertrelay.runtime.weights import (
@@ -30,6 +37,7 @@ from expertrelay.runtime.weights import (
     ResidentWeights,
     UnbufferedExpertSource,
 )
+from expertrelay.store.expert_reader import ExpertStoreReader
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="unbuffered expert reads are Windows-only")
 
@@ -105,3 +113,82 @@ def test_embedding_stays_memory_mapped_everything_else_in_ram(store):
     q_proj = resident["model.layers.0.self_attn.q_proj.weight"]
     assert not isinstance(q_proj.q.base, np.memmap)  # read into process memory
     assert resident.ram_bytes > 0
+
+
+def _cached_model(store, *, slots: int, prefetch_k: int, pin_layer0: bool, io_threads: int) -> QwenMoe:
+    config = model_config(store)
+    with ExpertStoreReader(store) as r:
+        record = r.layout.record_size
+    source = CachedExpertSource(
+        store,
+        capacity_bytes=slots * record,
+        pinned=[(0, e) for e in range(config.num_experts)] if pin_layer0 else [],
+        io_threads=io_threads,
+        min_free_slots=config.top_k + prefetch_k + 1,
+    )
+    return QwenMoe(config, ResidentWeights.load(store), source, prefetcher=PrefetchPolicy(prefetch_k))
+
+
+def _reference(store, prompt: list[int], new_tokens: int):
+    model = _model(store, RamExpertSource)
+    logits, _ = model.forward(np.array(prompt), KVCache(model.c, max_seq=32), all_logits=True)
+    tokens, _ = generate(model, prompt, max_new_tokens=new_tokens, max_seq=32)
+    return logits, tokens
+
+
+@pytest.mark.parametrize(
+    ("slots", "prefetch_k", "pin_layer0", "io_threads"),
+    [
+        (5, 2, False, 1),  # smaller than one layer's 8 experts: constant eviction
+        (8, 4, False, 2),
+        (15, 4, True, 1),  # all of layer 0 pinned
+        (24, 4, False, 1),  # everything fits
+    ],
+)
+@pytest.mark.parametrize("prefetch_on", [True, False])
+def test_cache_and_prefetcher_give_bit_identical_generation(
+    store, slots, prefetch_k, pin_layer0, io_threads, prefetch_on
+):
+    prompt = [3, 9, 27, 17, 51]
+    ref_logits, ref_tokens = _reference(store, prompt, 8)
+    model = _cached_model(
+        store, slots=slots, prefetch_k=prefetch_k, pin_layer0=pin_layer0, io_threads=io_threads
+    )
+    model.prefetch_enabled = prefetch_on
+    logits, _ = model.forward(np.array(prompt), KVCache(model.c, max_seq=32), all_logits=True)
+    tokens, steps = generate(model, prompt, max_new_tokens=8, max_seq=32)
+    model.experts.close()
+    np.testing.assert_array_equal(logits, ref_logits)  # bit-identical, not "close"
+    assert tokens == ref_tokens
+    issued = sum(s.prefetches_issued for s in steps)
+    assert (issued > 0) == prefetch_on
+    for s in steps:
+        uses = s.cache_hits + s.prefetch_hits + s.prefetch_waits + s.demand_reads
+        assert uses == s.expert_loads
+
+
+def test_prediction_switch_can_flip_mid_generation(store):
+    prompt = [5, 1, 60, 33]
+    _, ref_tokens = _reference(store, prompt, 8)
+    model = _cached_model(store, slots=8, prefetch_k=4, pin_layer0=False, io_threads=1)
+    cache = KVCache(model.c, max_seq=32)
+    feed, tokens = prompt, []
+    for i in range(8):
+        model.prefetch_enabled = i % 2 == 0
+        logits, _ = model.forward(np.array(feed), cache)
+        tokens.append(int(np.argmax(logits)))
+        feed = [tokens[-1]]
+    model.experts.close()
+    assert tokens == ref_tokens
+
+
+def test_per_layer_timings_cover_every_layer(store):
+    model = _cached_model(store, slots=8, prefetch_k=4, pin_layer0=False, io_threads=1)
+    _, steps = generate(model, [1, 2, 3], max_new_tokens=3, max_seq=16)
+    model.experts.close()
+    layers = CONFIG["num_hidden_layers"]
+    for s in steps:
+        assert len(s.attention_seconds) == len(s.moe_compute_seconds) == len(s.read_wait_seconds) == layers
+        assert min(s.attention_seconds + s.moe_compute_seconds + s.read_wait_seconds) >= 0
+        assert sum(s.attention_seconds + s.moe_compute_seconds + s.read_wait_seconds) <= s.total_seconds
+        assert sum(s.read_wait_seconds) == pytest.approx(s.expert_read_seconds)

@@ -13,8 +13,8 @@ each of these came to be.
 | `expertrelay.store` | Implemented: the full-model int8 expert store (`build_store`, `expert_reader`), selective HF fetch, pinned tokenizer, and a downloader for the original checkpoint (reference check only) |
 | `expertrelay.runtime` | Implemented: the full 24-layer Qwen1.5-MoE-A2.7B forward pass from the int8 store, with KV cache and greedy generation, on a swappable compute backend (numpy, MindSpore f32). Single device |
 | `expertrelay.manager` | The machine profile and compute-backend selection. **No multi-device Manager exists** (see "Device split" below) |
-| `expertrelay.cache` | **No cache in the runtime.** Every routed expert is read from disk each time it's picked and dropped after use. Offline simulators only (`simulator`, `predictive`), replaying recorded traces |
-| `expertrelay.predictor` | **No prediction in the runtime.** Expert reads are synchronous and reactive: the router decides, then the read happens, then compute. Offline tools only (`offline`: scoring, calibration, reuse model), fitted on recorded traces |
+| `expertrelay.cache` | `expert_cache`: the runtime's LRU expert cache with a fixed RAM budget, optional pinned layer 0 and background prefetch (`--source cached`). **Built and tested, not yet benchmarked** (see "Expert cache and prefetcher"). Offline simulators (`simulator`, `predictive`) replay recorded traces. RAM and one SSD only: no networked devices |
+| `expertrelay.predictor` | `prefetch_policy`: the runtime prefetcher's choice (top-k of the Fate-style guess, low-confidence guesses skipped). **Built and tested, not yet benchmarked.** Offline tools (`offline`: scoring, calibration, reuse model), fitted on recorded traces. Without `--source cached`, reads are still synchronous and reactive |
 | `expertrelay.bench` | `int8_kernels` (compute-path choice), `phase2_baselines` (normal load vs. OS paging vs. ours), `reference_check` (vs. HF transformers, bf16) |
 
 ## Device split: removed for now
@@ -244,6 +244,49 @@ In addition:
   benchmark (2.08 ms, `docs/machine-profile.md`), which the runtime
   doesn't reach today. Prefill time isn't modeled; the projection is
   decode speed.
+
+## Expert cache and prefetcher (Phase 4+5): built, not yet measured
+
+`--source cached` (`cache/expert_cache.py`, `predictor/prefetch_policy.py`,
+hooks in `runtime/qwen_moe.py`), settings in `configs/runtime_cache.json`
+or on the command line. What is and isn't established:
+
+- **No speed has been measured.** Tokens/s, hit rates on the real model,
+  and the per-layer attention / MoE / read-wait split are instrumented
+  (`generate.StepRecord`) but have not been run on the 24-layer model.
+  Every speed figure for the cache so far is a projection from traces
+  (`docs/phase3-analysis.md`, sections 7-8).
+- **Correctness is tested on the tiny synthetic model only:** cache and
+  prefetcher on or off, cache smaller than one layer, layer 0 pinned, one
+  or two I/O threads, the switch flipped mid-generation, all give logits
+  bit-identical to the all-in-RAM reference
+  (`tests/test_runtime_correctness.py`). On the real model the same check
+  (tokens with the cache and prefetcher on vs. off) is still to be run with
+  the benchmarks.
+- **Memory:** the cache is a fixed pool of whole expert slots
+  (`expert_cache_gb` / 8.67 MB, rounded down), allocated once and counted
+  in the process estimate that the budget is checked against. With the
+  1.66 GB cache in `configs/runtime_cache.json` the estimate is 3.51 GB,
+  under that config's 3.6 GB budget. That is a lot of an 8 GB machine
+  with other work running; the benchmark must record free RAM.
+- **Prefetch timing:** the guess for layer L+1 is computed right after
+  layer L's router, not earlier. Background reads use their own file
+  handle per I/O thread (1 by default); the forward pass's own demand
+  reads run alongside, so up to two reads can be in flight.
+- **Confidence threshold:** from the isotonic calibration fitted on the
+  BASE model's tuning-prompt traces
+  (`bench/fit_prefetch_calibration.py`). A Chat-store run reuses it until
+  a Chat calibration is fitted; the run's `load` info flags this
+  (`calibration_store_matches`). In prefill, each expert's score is its
+  best probability over the prompt's tokens, and the per-token calibration
+  is applied to that: a heuristic.
+- **Layer 0** has no prefetch (no layer before it). `pin_layer0` keeps all
+  60 of its experts in RAM (0.52 GB of the cache).
+- **Per-layer timing** brackets synchronous calls with `perf_counter`:
+  meaningful for the numpy backend. "Attention" includes the input norm;
+  "MoE compute" includes the router, the Fate guess, the routed experts and
+  the shared expert, minus time blocked on reads.
+- Windows only, like the unbuffered reader.
 
 ## Correctness rule, as applied now
 

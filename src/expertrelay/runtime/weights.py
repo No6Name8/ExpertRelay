@@ -13,6 +13,8 @@ for all of them:
   RamExpertSource         read all of experts.bin into RAM first: the
                           "normal load" baseline. 12.5 GB on an 8 GB machine,
                           so it is expected to fail; the benchmark records how.
+  CachedExpertSource      (cache.expert_cache) an LRU cache of experts in RAM
+                          under a fixed budget, with background prefetching.
 
 The embedding table is the one resident tensor NOT read into RAM by
 default: each token needs a single 2 KB row of a 311 MB table, so it's
@@ -117,9 +119,27 @@ ExpertWeights = dict[str, Int8Matrix]  # "gate_proj" / "up_proj" / "down_proj"
 
 @dataclass
 class SourceStats:
-    loads: int = 0
+    """Cumulative; the forward pass reports per-call deltas.
+
+    `read_seconds` is time the FORWARD PASS spent blocked on expert bytes:
+    its own reads, plus waiting for a background read already in flight.
+    `bytes_read` is what those blocking reads moved; background reads are
+    counted separately. Sources without a cache or prefetcher leave the
+    cache counters at 0 and count every load as a demand read."""
+
+    loads: int = 0  # experts handed to the forward pass
     bytes_read: int = 0
     read_seconds: float = 0.0
+    demand_reads: int = 0  # read by the forward pass itself, which waited for it
+    cache_hits: int = 0  # already in RAM, not from a prefetch still unused
+    prefetch_hits: int = 0  # in RAM thanks to a prefetch that had finished
+    prefetch_waits: int = 0  # a prefetch was already reading it: waited for that read
+    prefetches_issued: int = 0
+    prefetch_reads: int = 0  # background reads completed
+    prefetch_bytes: int = 0
+    prefetches_wasted: int = 0  # read in the background, evicted before any use
+    prefetches_cancelled: int = 0  # queued, never started, no longer useful
+    prefetches_skipped_full: int = 0  # no evictable slot at the time
 
 
 class ExpertSource(ABC):
@@ -137,6 +157,18 @@ class ExpertSource(ABC):
 
     def close(self) -> None:  # noqa: B027 - optional hook, most sources hold nothing
         pass
+
+    @property
+    def supports_prefetch(self) -> bool:
+        return False
+
+    def prefetch(self, layer: int, experts: list[int], keep: list[tuple[int, int]]) -> None:  # noqa: B027
+        """Start loading `experts` of `layer` in the background, without
+        evicting the (layer, expert) keys in `keep`. A no-op for sources
+        without a cache."""
+
+    def end_layer(self, layer: int) -> None:  # noqa: B027
+        """The forward pass is done with `layer`'s experts for this call."""
 
     def __enter__(self) -> ExpertSource:
         return self
@@ -162,6 +194,7 @@ class UnbufferedExpertSource(ExpertSource):
         raw = self._reader.read_raw(layer, expert)
         self.stats.read_seconds += time.perf_counter() - t
         self.stats.loads += 1
+        self.stats.demand_reads += 1
         self.stats.bytes_read += len(raw)
         return _to_matrices(parse_expert_record(self.layout, raw))
 
