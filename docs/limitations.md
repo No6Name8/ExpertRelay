@@ -13,8 +13,8 @@ each of these came to be.
 | `expertrelay.store` | Implemented: the full-model int8 expert store (`build_store`, `expert_reader`), selective HF fetch, pinned tokenizer, and a downloader for the original checkpoint (reference check only) |
 | `expertrelay.runtime` | Implemented: the full 24-layer Qwen1.5-MoE-A2.7B forward pass from the int8 store, with KV cache and greedy generation, on a swappable compute backend (numpy, MindSpore f32). Single device |
 | `expertrelay.manager` | The machine profile and compute-backend selection. **No multi-device Manager exists** (see "Device split" below) |
-| `expertrelay.cache` | **Placeholder only.** Every routed expert is read from disk each time it's picked and dropped after use |
-| `expertrelay.predictor` | **Placeholder only.** Expert reads are synchronous and reactive: the router decides, then the read happens, then compute |
+| `expertrelay.cache` | **No cache in the runtime.** Every routed expert is read from disk each time it's picked and dropped after use. Offline simulators only (`simulator`, `predictive`), replaying recorded traces |
+| `expertrelay.predictor` | **No prediction in the runtime.** Expert reads are synchronous and reactive: the router decides, then the read happens, then compute. Offline tools only (`offline`: scoring, calibration, reuse model), fitted on recorded traces |
 | `expertrelay.bench` | `int8_kernels` (compute-path choice), `phase2_baselines` (normal load vs. OS paging vs. ours), `reference_check` (vs. HF transformers, bf16) |
 
 ## Device split: removed for now
@@ -183,6 +183,13 @@ Results: `docs/phase3-analysis.md` (base store; generated from
   OTHER half (or, per category, the other categories); pinned experts still
   pay their first load. Belady needs the future: an upper bound, not a
   buildable policy.
+- **Known issue: the even/odd halves are whole categories.** The run
+  cycles through the 6 categories, so taking every other prompt in run
+  order puts {en, ar_gulf, math} in one half and {ar_msa, code, chat} in
+  the other. The pinned policy's "all prompts" hot set therefore comes from
+  three OTHER categories, which is stricter than intended and likely
+  understates it. Not rerun yet; Phase 3.5 (below) splits within each
+  category instead.
 - **Projected, not measured:** decode tokens/s at each cache size = Phase
   2's measured compute time per token + simulated misses x Phase 2's
   measured read time per expert. It assumes reads and compute don't
@@ -192,6 +199,51 @@ Results: `docs/phase3-analysis.md` (base store; generated from
   cross-layer guess (Fang et al., arXiv:2502.12224), and the analysis
   measures how much of the true top-4 it catches. Nothing acts on it yet:
   no prefetching exists, so no speedup from prediction has been measured.
+
+## Phase 3.5: prediction and caching, simulated
+
+Results: section 7 of `docs/phase3-analysis.md`, from
+`benchmarks/results/phase35_prediction_<store>.json`
+(`bench/phase35_prediction.py`). Everything above about the traces applies.
+In addition:
+
+- **Held out within each category.** Odd-numbered prompts of every
+  category tune (predictor weights, isotonic calibration, the reuse table,
+  the choice of "best" combination); even-numbered prompts are the only
+  ones reported. 48 + 48 prompts: small, so differences of a point or two
+  between policies are within noise.
+- **Decode tokens only for prediction.** In prefill, a layer's picks for
+  every prompt token come out of one call, so there is nothing "recent" to
+  use ahead of it. The simulated cache still replays prefill loads (it
+  stays warm through them); only decode hits are reported.
+- **Two layers ahead is not Fate.** Fate's gate two layers ahead needs the
+  hidden state, which the traces don't record. The two-ahead numbers use
+  expert-to-expert transition tables instead (from the picks two layers
+  back, or Fate's one-ahead guess pushed one step further), so they show
+  how much a SIMPLE two-ahead predictor loses, not how Fate itself would
+  do. Measuring Fate two ahead needs a trace re-run that records router
+  L+2 applied to layer L's gate input.
+- **Layer 0** has no previous layer: its prediction is popularity (from the
+  tuning prompts) plus recency, made during the previous token's last
+  layer.
+- **Simulated policies, not built ones.** "Prediction-aware eviction"
+  scores every cached expert by its chance of being picked at its layer's
+  next visit: the calibrated prediction for the next layer, a reuse table
+  (gap since last use, recent count) for all other layers. Prefetching
+  loads the top-k predicted experts for the next layer. A prefetch that
+  isn't used costs a read and a cache slot; both are counted. With
+  prefetching, the hit rate can exceed Belady's, which is optimal only
+  for caches that load on demand.
+- **Projected, not measured, and optimistic about overlap.** Compute per
+  layer = Phase 2's 0.954 s per token / 24, the same for every layer
+  (attention and expert work aren't separated). Reads go one at a time.
+  A prefetch for layer L+1 is hidden behind ALL of layer L's compute; in
+  the real forward pass the prediction is ready only after layer L's
+  attention, so the real window is shorter. Two read times: Phase 2's
+  end-to-end runtime figure (4.9 ms per expert) and the raw uncached SSD
+  benchmark (2.08 ms, `docs/machine-profile.md`), which the runtime
+  doesn't reach today. Prefill time isn't modeled; the projection is
+  decode speed.
 
 ## Correctness rule, as applied now
 

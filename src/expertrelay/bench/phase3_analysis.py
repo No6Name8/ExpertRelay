@@ -408,6 +408,9 @@ POLICY_LABELS = {
     "belady": "Belady (optimal, needs the future)",
 }
 BASE_STORE = "qwen1.5-moe-a2.7b-int8"
+# Sections other scripts append to the doc (e.g. bench/phase35_prediction.py) start at
+# this line; regenerating the Phase 3 part keeps everything from it on.
+APPENDED_SECTIONS_MARKER = "<!-- appended sections: kept when this doc is regenerated -->"
 
 
 def doc_path_for(store: str) -> Path:
@@ -531,7 +534,12 @@ def render(record: dict, json_path: Path) -> Path:
     save(fig, "projected_tok_s")
 
     path = doc_path_for(store)
-    path.write_text(format_markdown(record, json_path, charts), encoding="utf-8")
+    text = format_markdown(record, json_path, charts)
+    if path.exists():
+        old = path.read_text(encoding="utf-8")
+        if APPENDED_SECTIONS_MARKER in old:
+            text += "\n" + APPENDED_SECTIONS_MARKER + old.split(APPENDED_SECTIONS_MARKER, 1)[1]
+    path.write_text(text, encoding="utf-8")
     return path
 
 
