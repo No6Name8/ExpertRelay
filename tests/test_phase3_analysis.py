@@ -105,9 +105,9 @@ def test_upsert_doc_section(tmp_path):
     doc = tmp_path / "doc.md"
     head = "# Phase 3\n\nbody\n\n"
     doc.write_text(head + APPENDED_SECTIONS_MARKER + "\n\nold unnamed output\n")
-    upsert_doc_section(doc, "a", "A1\n")
     upsert_doc_section(doc, "b", "B1\n")
-    upsert_doc_section(doc, "a", "A2\n")
+    upsert_doc_section(doc, "a", "A1\n")
+    upsert_doc_section(doc, "a", "A2\n")  # replaced in place; "a" still sorts before "b"
     text = doc.read_text()
     assert text.startswith(head + APPENDED_SECTIONS_MARKER)
     assert "old unnamed output" not in text

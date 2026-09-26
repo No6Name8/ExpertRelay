@@ -429,13 +429,15 @@ _SECTION_RE = re.compile(r"<!-- section:(\S+) -->\n(.*?)<!-- /section:\1 -->", r
 
 
 def upsert_doc_section(path: Path, name: str, text: str) -> None:
-    """Replace (or append) one named generated section after the marker.
-    Each generator owns one name. Anything after the marker that isn't inside
-    a named section can only be older generator output, and is dropped."""
+    """Replace (or add) one named generated section after the marker.
+    Each generator owns one name; sections are kept in name order, so the
+    doc's order doesn't depend on which generator ran last. Anything after
+    the marker that isn't inside a named section can only be older generator
+    output, and is dropped."""
     head, _, tail = path.read_text(encoding="utf-8").partition(APPENDED_SECTIONS_MARKER)
     sections = dict(_SECTION_RE.findall(tail))
     sections[name] = text
-    body = "".join(f"<!-- section:{n} -->\n{t}<!-- /section:{n} -->\n\n" for n, t in sections.items())
+    body = "".join(f"<!-- section:{n} -->\n{sections[n]}<!-- /section:{n} -->\n\n" for n in sorted(sections))
     path.write_text(head.rstrip("\n") + "\n\n" + APPENDED_SECTIONS_MARKER + "\n\n" + body, encoding="utf-8")
 
 
