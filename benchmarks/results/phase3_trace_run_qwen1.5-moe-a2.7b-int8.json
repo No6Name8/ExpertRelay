@@ -1,0 +1,750 @@
+[
+  {
+    "label": "phase3 expert traces",
+    "timestamp": "2026-09-26T13:21:50Z",
+    "git_commit": "e1fe2098bbdab06d2dd6aed699444291123411b2",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 1562349568
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 74569891840
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "store": "qwen1.5-moe-a2.7b-int8",
+      "repo_id": "Qwen/Qwen1.5-MoE-A2.7B",
+      "revision": "1a758c50ecb6350748b9ce0a99d2352fd9fc11c9"
+    },
+    "config": {
+      "memory_budget_gb": 2.5,
+      "max_seq": 192,
+      "max_new_tokens": 128,
+      "prompts_file": "C:\\Users\\h\\Documents\\ExpertRelay\\benchmarks\\prompts\\phase3.json",
+      "store_dir": "C:\\Users\\h\\Documents\\ExpertRelay\\models\\qwen1.5-moe-a2.7b-int8",
+      "prompt_format": "plain",
+      "trace_dir": "models/traces/qwen1.5-moe-a2.7b-int8"
+    },
+    "estimate": {
+      "seconds": 18260.065280516494,
+      "prefill_s_per_token": 0.5263073326309065,
+      "decode_s_per_token": 1.4253156072584041,
+      "source": "benchmarks/results/phase2_baselines.json @ 5406ea5"
+    },
+    "results": {
+      "prompts_done": 96,
+      "prompts_run_this_session": 96,
+      "actual_seconds_total": 19502.57891470054,
+      "estimated_seconds_total": 18260.065280516494,
+      "trace_bytes_total": 92564937,
+      "load": {
+        "source": "unbuffered",
+        "backend": {
+          "name": "numpy",
+          "device": null,
+          "reason": "CPU only: the numpy int8 kernel measured 6-13x faster than MindSpore CPU ops"
+        },
+        "estimated_ram_bytes": 1894385152,
+        "budget_gb": 2.5,
+        "resident_ram_bytes": 1559946752,
+        "load_seconds": 1.4011715999804437
+      },
+      "per_prompt": [
+        {
+          "id": "en_01",
+          "category": "en",
+          "prompt_tokens": 22,
+          "seconds": 200.2129455000395,
+          "prefill_seconds": 11.964722799952142
+        },
+        {
+          "id": "ar_msa_01",
+          "category": "ar_msa",
+          "prompt_tokens": 21,
+          "seconds": 204.19858870003372,
+          "prefill_seconds": 10.565476899966598
+        },
+        {
+          "id": "ar_gulf_01",
+          "category": "ar_gulf",
+          "prompt_tokens": 15,
+          "seconds": 205.81906100001652,
+          "prefill_seconds": 9.501929600024596
+        },
+        {
+          "id": "code_01",
+          "category": "code",
+          "prompt_tokens": 30,
+          "seconds": 200.38873719994444,
+          "prefill_seconds": 14.641832299996167
+        },
+        {
+          "id": "math_01",
+          "category": "math",
+          "prompt_tokens": 36,
+          "seconds": 198.70602539996617,
+          "prefill_seconds": 15.949412500020117
+        },
+        {
+          "id": "chat_01",
+          "category": "chat",
+          "prompt_tokens": 19,
+          "seconds": 199.8359047000995,
+          "prefill_seconds": 10.954078299924731
+        },
+        {
+          "id": "en_02",
+          "category": "en",
+          "prompt_tokens": 8,
+          "seconds": 222.61712870001793,
+          "prefill_seconds": 11.171539400005713
+        },
+        {
+          "id": "ar_msa_02",
+          "category": "ar_msa",
+          "prompt_tokens": 27,
+          "seconds": 195.36573700001463,
+          "prefill_seconds": 13.155583000043407
+        },
+        {
+          "id": "ar_gulf_02",
+          "category": "ar_gulf",
+          "prompt_tokens": 18,
+          "seconds": 186.4254426000407,
+          "prefill_seconds": 10.017148700077087
+        },
+        {
+          "id": "code_02",
+          "category": "code",
+          "prompt_tokens": 21,
+          "seconds": 187.2324174999958,
+          "prefill_seconds": 11.152885099989362
+        },
+        {
+          "id": "math_02",
+          "category": "math",
+          "prompt_tokens": 19,
+          "seconds": 187.62996219994966,
+          "prefill_seconds": 11.0162224000087
+        },
+        {
+          "id": "chat_02",
+          "category": "chat",
+          "prompt_tokens": 11,
+          "seconds": 184.48243590001948,
+          "prefill_seconds": 8.164750299998559
+        },
+        {
+          "id": "en_03",
+          "category": "en",
+          "prompt_tokens": 18,
+          "seconds": 187.61106290004682,
+          "prefill_seconds": 10.045019299956039
+        },
+        {
+          "id": "ar_msa_03",
+          "category": "ar_msa",
+          "prompt_tokens": 29,
+          "seconds": 199.32138810004108,
+          "prefill_seconds": 12.553786600008607
+        },
+        {
+          "id": "ar_gulf_03",
+          "category": "ar_gulf",
+          "prompt_tokens": 13,
+          "seconds": 194.5755626000464,
+          "prefill_seconds": 8.449294400052167
+        },
+        {
+          "id": "code_03",
+          "category": "code",
+          "prompt_tokens": 18,
+          "seconds": 188.0054872999899,
+          "prefill_seconds": 11.02169760002289
+        },
+        {
+          "id": "math_03",
+          "category": "math",
+          "prompt_tokens": 24,
+          "seconds": 189.30797890003305,
+          "prefill_seconds": 12.672405599965714
+        },
+        {
+          "id": "chat_03",
+          "category": "chat",
+          "prompt_tokens": 15,
+          "seconds": 186.2327127000317,
+          "prefill_seconds": 9.293225300032645
+        },
+        {
+          "id": "en_04",
+          "category": "en",
+          "prompt_tokens": 12,
+          "seconds": 185.16070849995594,
+          "prefill_seconds": 8.409040700062178
+        },
+        {
+          "id": "ar_msa_04",
+          "category": "ar_msa",
+          "prompt_tokens": 26,
+          "seconds": 189.994882900035,
+          "prefill_seconds": 12.146690599969588
+        },
+        {
+          "id": "ar_gulf_04",
+          "category": "ar_gulf",
+          "prompt_tokens": 16,
+          "seconds": 186.1427620999748,
+          "prefill_seconds": 9.20182770001702
+        },
+        {
+          "id": "code_04",
+          "category": "code",
+          "prompt_tokens": 24,
+          "seconds": 196.47943079995457,
+          "prefill_seconds": 12.441375199938193
+        },
+        {
+          "id": "math_04",
+          "category": "math",
+          "prompt_tokens": 34,
+          "seconds": 191.81467039999552,
+          "prefill_seconds": 15.587170899962075
+        },
+        {
+          "id": "chat_04",
+          "category": "chat",
+          "prompt_tokens": 11,
+          "seconds": 183.81112450000364,
+          "prefill_seconds": 8.00727010006085
+        },
+        {
+          "id": "en_05",
+          "category": "en",
+          "prompt_tokens": 10,
+          "seconds": 184.2085350000998,
+          "prefill_seconds": 7.554463400039822
+        },
+        {
+          "id": "ar_msa_05",
+          "category": "ar_msa",
+          "prompt_tokens": 20,
+          "seconds": 184.85381350002717,
+          "prefill_seconds": 10.304286800092086
+        },
+        {
+          "id": "ar_gulf_05",
+          "category": "ar_gulf",
+          "prompt_tokens": 22,
+          "seconds": 188.42088300001342,
+          "prefill_seconds": 10.83960589999333
+        },
+        {
+          "id": "code_05",
+          "category": "code",
+          "prompt_tokens": 16,
+          "seconds": 193.72080569993705,
+          "prefill_seconds": 10.553309399983846
+        },
+        {
+          "id": "math_05",
+          "category": "math",
+          "prompt_tokens": 26,
+          "seconds": 188.41143580002245,
+          "prefill_seconds": 13.103240599972196
+        },
+        {
+          "id": "chat_05",
+          "category": "chat",
+          "prompt_tokens": 13,
+          "seconds": 183.6680876999162,
+          "prefill_seconds": 8.43960469996091
+        },
+        {
+          "id": "en_06",
+          "category": "en",
+          "prompt_tokens": 8,
+          "seconds": 187.7663030999247,
+          "prefill_seconds": 6.416404300020076
+        },
+        {
+          "id": "ar_msa_06",
+          "category": "ar_msa",
+          "prompt_tokens": 9,
+          "seconds": 181.1798131999094,
+          "prefill_seconds": 6.695752199972048
+        },
+        {
+          "id": "ar_gulf_06",
+          "category": "ar_gulf",
+          "prompt_tokens": 24,
+          "seconds": 186.081605900079,
+          "prefill_seconds": 11.375026500085369
+        },
+        {
+          "id": "code_06",
+          "category": "code",
+          "prompt_tokens": 25,
+          "seconds": 187.84209159994498,
+          "prefill_seconds": 12.938455100054853
+        },
+        {
+          "id": "math_06",
+          "category": "math",
+          "prompt_tokens": 16,
+          "seconds": 183.99543290003203,
+          "prefill_seconds": 9.299042699974962
+        },
+        {
+          "id": "chat_06",
+          "category": "chat",
+          "prompt_tokens": 15,
+          "seconds": 183.50985939998645,
+          "prefill_seconds": 8.992246299982071
+        },
+        {
+          "id": "en_07",
+          "category": "en",
+          "prompt_tokens": 12,
+          "seconds": 181.99957169999834,
+          "prefill_seconds": 8.337057600030676
+        },
+        {
+          "id": "ar_msa_07",
+          "category": "ar_msa",
+          "prompt_tokens": 19,
+          "seconds": 185.00942380004562,
+          "prefill_seconds": 10.650671800016426
+        },
+        {
+          "id": "ar_gulf_07",
+          "category": "ar_gulf",
+          "prompt_tokens": 15,
+          "seconds": 183.8586762000341,
+          "prefill_seconds": 9.14663649990689
+        },
+        {
+          "id": "code_07",
+          "category": "code",
+          "prompt_tokens": 12,
+          "seconds": 183.24103580007795,
+          "prefill_seconds": 8.36825050006155
+        },
+        {
+          "id": "math_07",
+          "category": "math",
+          "prompt_tokens": 28,
+          "seconds": 188.83823560003657,
+          "prefill_seconds": 13.841036299942061
+        },
+        {
+          "id": "chat_07",
+          "category": "chat",
+          "prompt_tokens": 12,
+          "seconds": 191.20892759994604,
+          "prefill_seconds": 8.876858000061475
+        },
+        {
+          "id": "en_08",
+          "category": "en",
+          "prompt_tokens": 19,
+          "seconds": 186.38555850007106,
+          "prefill_seconds": 10.905578700010665
+        },
+        {
+          "id": "ar_msa_08",
+          "category": "ar_msa",
+          "prompt_tokens": 13,
+          "seconds": 183.7016072999686,
+          "prefill_seconds": 8.539034199900925
+        },
+        {
+          "id": "ar_gulf_08",
+          "category": "ar_gulf",
+          "prompt_tokens": 15,
+          "seconds": 183.1368620999856,
+          "prefill_seconds": 8.883080999949016
+        },
+        {
+          "id": "code_08",
+          "category": "code",
+          "prompt_tokens": 19,
+          "seconds": 185.22886380006094,
+          "prefill_seconds": 10.556206000037491
+        },
+        {
+          "id": "math_08",
+          "category": "math",
+          "prompt_tokens": 18,
+          "seconds": 192.72387760004494,
+          "prefill_seconds": 10.674445699900389
+        },
+        {
+          "id": "chat_08",
+          "category": "chat",
+          "prompt_tokens": 12,
+          "seconds": 183.37183309998363,
+          "prefill_seconds": 8.561942099942826
+        },
+        {
+          "id": "en_09",
+          "category": "en",
+          "prompt_tokens": 6,
+          "seconds": 180.102630999987,
+          "prefill_seconds": 5.392291099997237
+        },
+        {
+          "id": "ar_msa_09",
+          "category": "ar_msa",
+          "prompt_tokens": 7,
+          "seconds": 180.23472140007652,
+          "prefill_seconds": 5.709531100001186
+        },
+        {
+          "id": "ar_gulf_09",
+          "category": "ar_gulf",
+          "prompt_tokens": 17,
+          "seconds": 184.683197400067,
+          "prefill_seconds": 9.331882099970244
+        },
+        {
+          "id": "code_09",
+          "category": "code",
+          "prompt_tokens": 15,
+          "seconds": 194.63809140003286,
+          "prefill_seconds": 9.67941730003804
+        },
+        {
+          "id": "math_09",
+          "category": "math",
+          "prompt_tokens": 39,
+          "seconds": 191.64905600005295,
+          "prefill_seconds": 16.048898099921644
+        },
+        {
+          "id": "chat_09",
+          "category": "chat",
+          "prompt_tokens": 6,
+          "seconds": 180.54566189995967,
+          "prefill_seconds": 5.246832299977541
+        },
+        {
+          "id": "en_10",
+          "category": "en",
+          "prompt_tokens": 11,
+          "seconds": 182.63448779995088,
+          "prefill_seconds": 8.32426999998279
+        },
+        {
+          "id": "ar_msa_10",
+          "category": "ar_msa",
+          "prompt_tokens": 24,
+          "seconds": 187.61767250008415,
+          "prefill_seconds": 12.00269379990641
+        },
+        {
+          "id": "ar_gulf_10",
+          "category": "ar_gulf",
+          "prompt_tokens": 17,
+          "seconds": 185.35230439994484,
+          "prefill_seconds": 10.033764899941161
+        },
+        {
+          "id": "code_10",
+          "category": "code",
+          "prompt_tokens": 11,
+          "seconds": 182.97417700011283,
+          "prefill_seconds": 8.070496900007129
+        },
+        {
+          "id": "math_10",
+          "category": "math",
+          "prompt_tokens": 20,
+          "seconds": 186.74625450000167,
+          "prefill_seconds": 11.25735539989546
+        },
+        {
+          "id": "chat_10",
+          "category": "chat",
+          "prompt_tokens": 13,
+          "seconds": 184.3468911999371,
+          "prefill_seconds": 8.394648500019684
+        },
+        {
+          "id": "en_11",
+          "category": "en",
+          "prompt_tokens": 10,
+          "seconds": 182.83173210010864,
+          "prefill_seconds": 7.561947999987751
+        },
+        {
+          "id": "ar_msa_11",
+          "category": "ar_msa",
+          "prompt_tokens": 19,
+          "seconds": 185.90984520001803,
+          "prefill_seconds": 10.667756199953146
+        },
+        {
+          "id": "ar_gulf_11",
+          "category": "ar_gulf",
+          "prompt_tokens": 21,
+          "seconds": 186.91310010000598,
+          "prefill_seconds": 10.840637099929154
+        },
+        {
+          "id": "code_11",
+          "category": "code",
+          "prompt_tokens": 35,
+          "seconds": 202.00301149999723,
+          "prefill_seconds": 15.608524700044654
+        },
+        {
+          "id": "math_11",
+          "category": "math",
+          "prompt_tokens": 14,
+          "seconds": 184.18635440000799,
+          "prefill_seconds": 9.507168999989517
+        },
+        {
+          "id": "chat_11",
+          "category": "chat",
+          "prompt_tokens": 15,
+          "seconds": 190.1787417999003,
+          "prefill_seconds": 9.416801800020039
+        },
+        {
+          "id": "en_12",
+          "category": "en",
+          "prompt_tokens": 6,
+          "seconds": 228.73932040005457,
+          "prefill_seconds": 5.712309199967422
+        },
+        {
+          "id": "ar_msa_12",
+          "category": "ar_msa",
+          "prompt_tokens": 18,
+          "seconds": 245.0577261999715,
+          "prefill_seconds": 17.32805220002774
+        },
+        {
+          "id": "ar_gulf_12",
+          "category": "ar_gulf",
+          "prompt_tokens": 12,
+          "seconds": 322.7643159000436,
+          "prefill_seconds": 14.061729000066407
+        },
+        {
+          "id": "code_12",
+          "category": "code",
+          "prompt_tokens": 11,
+          "seconds": 293.20947200001683,
+          "prefill_seconds": 13.351342199952342
+        },
+        {
+          "id": "math_12",
+          "category": "math",
+          "prompt_tokens": 19,
+          "seconds": 186.91811420000158,
+          "prefill_seconds": 11.133346499991603
+        },
+        {
+          "id": "chat_12",
+          "category": "chat",
+          "prompt_tokens": 10,
+          "seconds": 249.63510890002362,
+          "prefill_seconds": 7.462204799987376
+        },
+        {
+          "id": "en_13",
+          "category": "en",
+          "prompt_tokens": 14,
+          "seconds": 323.7296981998952,
+          "prefill_seconds": 15.043919300078414
+        },
+        {
+          "id": "ar_msa_13",
+          "category": "ar_msa",
+          "prompt_tokens": 19,
+          "seconds": 326.59259699995164,
+          "prefill_seconds": 19.206914099981077
+        },
+        {
+          "id": "ar_gulf_13",
+          "category": "ar_gulf",
+          "prompt_tokens": 14,
+          "seconds": 327.4904026000295,
+          "prefill_seconds": 14.944357799948193
+        },
+        {
+          "id": "code_13",
+          "category": "code",
+          "prompt_tokens": 40,
+          "seconds": 332.25268799997866,
+          "prefill_seconds": 25.653462600079365
+        },
+        {
+          "id": "math_13",
+          "category": "math",
+          "prompt_tokens": 27,
+          "seconds": 330.86230809998233,
+          "prefill_seconds": 21.87254670006223
+        },
+        {
+          "id": "chat_13",
+          "category": "chat",
+          "prompt_tokens": 13,
+          "seconds": 329.01118849997874,
+          "prefill_seconds": 14.268098499975167
+        },
+        {
+          "id": "en_14",
+          "category": "en",
+          "prompt_tokens": 10,
+          "seconds": 319.5804402999347,
+          "prefill_seconds": 13.556585400016047
+        },
+        {
+          "id": "ar_msa_14",
+          "category": "ar_msa",
+          "prompt_tokens": 17,
+          "seconds": 249.09962879994418,
+          "prefill_seconds": 17.725938099902123
+        },
+        {
+          "id": "ar_gulf_14",
+          "category": "ar_gulf",
+          "prompt_tokens": 10,
+          "seconds": 187.46977970004082,
+          "prefill_seconds": 7.605535399983637
+        },
+        {
+          "id": "code_14",
+          "category": "code",
+          "prompt_tokens": 19,
+          "seconds": 183.55949150002562,
+          "prefill_seconds": 10.691984299919568
+        },
+        {
+          "id": "math_14",
+          "category": "math",
+          "prompt_tokens": 21,
+          "seconds": 188.19492739997804,
+          "prefill_seconds": 11.420265499968082
+        },
+        {
+          "id": "chat_14",
+          "category": "chat",
+          "prompt_tokens": 9,
+          "seconds": 198.18822929996531,
+          "prefill_seconds": 7.2231561000226066
+        },
+        {
+          "id": "en_15",
+          "category": "en",
+          "prompt_tokens": 8,
+          "seconds": 185.07771109999157,
+          "prefill_seconds": 6.782051599933766
+        },
+        {
+          "id": "ar_msa_15",
+          "category": "ar_msa",
+          "prompt_tokens": 15,
+          "seconds": 181.96464330004528,
+          "prefill_seconds": 9.648391399998218
+        },
+        {
+          "id": "ar_gulf_15",
+          "category": "ar_gulf",
+          "prompt_tokens": 16,
+          "seconds": 180.8041953999782,
+          "prefill_seconds": 8.892815100029111
+        },
+        {
+          "id": "code_15",
+          "category": "code",
+          "prompt_tokens": 22,
+          "seconds": 185.06396020005923,
+          "prefill_seconds": 11.855816999915987
+        },
+        {
+          "id": "math_15",
+          "category": "math",
+          "prompt_tokens": 19,
+          "seconds": 191.649274699972,
+          "prefill_seconds": 11.129771199892275
+        },
+        {
+          "id": "chat_15",
+          "category": "chat",
+          "prompt_tokens": 11,
+          "seconds": 185.67361729999539,
+          "prefill_seconds": 8.506741199991666
+        },
+        {
+          "id": "en_16",
+          "category": "en",
+          "prompt_tokens": 10,
+          "seconds": 181.74664969998412,
+          "prefill_seconds": 7.329579800018109
+        },
+        {
+          "id": "ar_msa_16",
+          "category": "ar_msa",
+          "prompt_tokens": 21,
+          "seconds": 185.59185470000375,
+          "prefill_seconds": 11.023473900044337
+        },
+        {
+          "id": "ar_gulf_16",
+          "category": "ar_gulf",
+          "prompt_tokens": 16,
+          "seconds": 183.377984700026,
+          "prefill_seconds": 9.564987599966116
+        },
+        {
+          "id": "code_16",
+          "category": "code",
+          "prompt_tokens": 19,
+          "seconds": 183.07573710009456,
+          "prefill_seconds": 10.726206099963747
+        },
+        {
+          "id": "math_16",
+          "category": "math",
+          "prompt_tokens": 31,
+          "seconds": 186.13039930001833,
+          "prefill_seconds": 13.056889700004831
+        },
+        {
+          "id": "chat_16",
+          "category": "chat",
+          "prompt_tokens": 15,
+          "seconds": 182.78422059991863,
+          "prefill_seconds": 9.451430300017819
+        }
+      ],
+      "peak_rss_mb": 1719.45984
+    }
+  }
+]
