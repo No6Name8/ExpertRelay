@@ -34,7 +34,7 @@ import time
 from pathlib import Path
 
 from expertrelay import REPO_ROOT
-from expertrelay.benchmarking import append_benchmark_record, base_record, process_peak_rss_mb
+from expertrelay.benchmarking import append_benchmark_record, base_record, process_memory_mb
 from expertrelay.manager.profile import collect_machine_profile, device_read_bytes, measure_memory
 from expertrelay.paths import BENCHMARK_RESULTS_DIR
 from expertrelay.runtime.generate import DEFAULT_RUNTIME_CONFIG, RuntimeConfig
@@ -72,15 +72,16 @@ def run_one(baseline: dict, config_path: Path, timeout_s: float) -> dict:
         stderr_path = Path(tmp) / "stderr.txt"
         with open(stderr_path, "w", encoding="utf-8") as err:
             child = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=err, cwd=REPO_ROOT)
-            peak, status = 0.0, None
+            peak, private_peak, status = 0.0, 0.0, None
             while child.poll() is None:
                 if time.perf_counter() - t0 > timeout_s:
                     child.kill()
                     child.wait()
                     status = f"timeout after {timeout_s:.0f} s (killed)"
                     break
-                sample = process_peak_rss_mb(child.pid)
-                peak = max(peak, sample or 0.0)
+                sample = process_memory_mb(child.pid)
+                if sample:
+                    peak, private_peak = max(peak, sample[0]), max(private_peak, sample[1])
                 time.sleep(0.5)
         wall = time.perf_counter() - t0
         result = {
@@ -90,6 +91,7 @@ def run_one(baseline: dict, config_path: Path, timeout_s: float) -> dict:
             "ram_available_before_bytes": ram_free_before,
             "device_bytes_read_total": device_read_bytes() - dev0,
             "peak_rss_mb_polled": peak,
+            "peak_private_mb_polled": private_peak,
             "stderr_tail": stderr_path.read_text(encoding="utf-8", errors="replace").splitlines()[-15:],
         }
         if status is None:
@@ -155,8 +157,8 @@ def format_markdown(record: dict, json_path: Path) -> str:
         if m:
             rows.append(
                 f"| {r['id']} | {r['name']} | {m['decode_tokens_per_s']:.2f} | {m['time_to_first_token_mean_s']:.1f} | "
-                f"{r['peak_rss_mb_polled']:.0f} | {r['device_bytes_read_total'] / 1e9:.1f} | "
-                f"{m['decode_device_mb_per_token']:.0f} | "
+                f"{r['peak_rss_mb_polled']:.0f} / {r['peak_private_mb_polled']:.0f} | "
+                f"{r['device_bytes_read_total'] / 1e9:.1f} | {m['decode_device_mb_per_token']:.0f} | "
                 + (
                     f"{m['decode_expert_read_s_per_token']:.2f} / {m['decode_compute_s_per_token']:.2f}"
                     if r["source"] == "unbuffered"
@@ -183,7 +185,8 @@ def format_markdown(record: dict, json_path: Path) -> str:
         f"RAM free when the benchmark started: {record['machine']['memory']['available_bytes'] / 1e9:.2f} GB "
         f"of {record['machine']['memory']['total_bytes'] / 1e9:.2f} GB.",
         "",
-        "| | Setup | Decode tok/s | First token (s, mean) | Peak RAM (MB) | Disk read, total (GB) | "
+        "| | Setup | Decode tok/s | First token (s, mean) | Peak RAM: working set / private (MB) | "
+        "Disk read, total (GB) | "
         "Disk read per decode token (MB) | Per decode token: disk read / compute (s) | Status |",
         "|---|---|---|---|---|---|---|---|---|",
         *rows,
@@ -192,7 +195,9 @@ def format_markdown(record: dict, json_path: Path) -> str:
         f"(compared: {', '.join(record['token_agreement']['compared']) or 'none'}).",
         "",
         "With memory mapping (B) the disk reads happen as page faults inside the matrix multiplies, so they "
-        "can't be timed apart from compute; its disk-read column shows bytes only.",
+        "can't be timed apart from compute; its disk-read column shows bytes only. Its working set also "
+        "counts mapped file pages the OS can drop at any time; private bytes count only memory the process "
+        "owns. Disk read totals are system-wide device reads during the run (they include OS paging).",
     ]
     for r in failures:
         lines += [

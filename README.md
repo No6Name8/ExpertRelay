@@ -42,16 +42,16 @@ that's already doing this manually with cruder tooling.
 
 ## Status
 
-Early. What's real right now: a working two-process device split
-(`expertrelay.manager` + `expertrelay.runtime`) over a real TCP socket,
-running a real (truncated) slice of Qwen1.5-MoE-A2.7B's actual weights —
-but the expert-to-device assignment is still static, set once at
-conversion time, not yet a live cache with eviction, and there is no
-prediction yet (every expert call is reactive: the router decides, then
-the request goes out). **See `docs/limitations.md` before trusting any
-claim about what currently works** — it's the maintained source of truth
-for real vs. simplified vs. not-yet-built, and this README will drift out
-of date faster than that file will.
+Early. What's real right now: the full Qwen1.5-MoE-A2.7B (24 layers,
+1,440 routed experts) stored on the SSD in int8, and a runtime that
+generates from it on an 8 GB laptop. Resident weights stay in RAM, and each
+routed expert is read from disk with one unbuffered read when the router
+picks it, then dropped. There's no cache yet, no prediction (every read is
+reactive), and only one device: the earlier two-process network split was
+removed with the reduced model it ran on. **See `docs/limitations.md`
+before trusting any claim about what currently works.** It's the
+maintained source of truth for real vs. simplified vs. not-yet-built, and
+this README will drift out of date faster than that file will.
 
 ## Structure
 

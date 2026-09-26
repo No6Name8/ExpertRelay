@@ -53,7 +53,9 @@ def git_is_dirty() -> bool | None:
     "reproduce this" to quietly fail; record it rather than hide it."""
     try:
         result = subprocess.run(
-            ["git", "status", "--porcelain"],
+            # untracked files (e.g. a results file a previous benchmark just
+            # wrote) don't change the code that runs, so they don't count
+            ["git", "status", "--porcelain", "--untracked-files=no"],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -79,15 +81,22 @@ def peak_process_rss_mb() -> float:
     return peak_bytes / 1e6
 
 
-def process_peak_rss_mb(pid: int) -> float | None:
-    """Peak memory of ANOTHER process so far (same caveats as above), or None
-    if it has already exited. Benchmarks poll this for child processes that
-    may crash before they can report their own peak."""
+def process_memory_mb(pid: int) -> tuple[float, float] | None:
+    """(peak working set so far, current private bytes) of ANOTHER process,
+    in MB, or None if it has already exited. Benchmarks poll this for child
+    processes that may crash before they can report their own peak.
+
+    Both are reported because they disagree for memory-mapped files. The
+    working set counts mapped file pages, which the OS can drop at any time;
+    private bytes count only memory the process owns. On non-Windows
+    platforms psutil has neither, and both fall back to RSS."""
     try:
         info = psutil.Process(pid).memory_info()
     except psutil.Error:
         return None
-    return (getattr(info, "peak_wset", None) or info.rss) / 1e6
+    peak = getattr(info, "peak_wset", None) or info.rss
+    private = getattr(info, "private", None) or info.rss
+    return peak / 1e6, private / 1e6
 
 
 def append_benchmark_record(path: Path, record: dict) -> None:
