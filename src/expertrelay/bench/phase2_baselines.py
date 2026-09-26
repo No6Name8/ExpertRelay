@@ -168,8 +168,9 @@ def format_markdown(record: dict, json_path: Path) -> str:
             )
         else:
             rows.append(
-                f"| {r['id']} | {r['name']} | - | - | {r['peak_rss_mb_polled']:.0f} | "
-                f"{r['device_bytes_read_total'] / 1e9:.1f} | - | - | {r['status']} |"
+                f"| {r['id']} | {r['name']} | - | - | {r['peak_rss_mb_polled']:.0f} / "
+                f"{r['peak_private_mb_polled']:.0f} | {r['device_bytes_read_total'] / 1e9:.1f} | - | - | "
+                f"{r['status']} |"
             )
     failures = [r for r in record["results"] if r["status"] != "ok"]
     ours = next((r for r in record["results"] if r["source"] == "unbuffered" and r.get("run")), None)
@@ -185,7 +186,7 @@ def format_markdown(record: dict, json_path: Path) -> str:
         f"RAM free when the benchmark started: {record['machine']['memory']['available_bytes'] / 1e9:.2f} GB "
         f"of {record['machine']['memory']['total_bytes'] / 1e9:.2f} GB.",
         "",
-        "| | Setup | Decode tok/s | First token (s, mean) | Peak RAM: working set / private (MB) | "
+        "| | Setup | Decode tok/s | First token (s, mean) | Peak RAM: working set / committed (MB) | "
         "Disk read, total (GB) | "
         "Disk read per decode token (MB) | Per decode token: disk read / compute (s) | Status |",
         "|---|---|---|---|---|---|---|---|---|",
@@ -196,8 +197,10 @@ def format_markdown(record: dict, json_path: Path) -> str:
         "",
         "With memory mapping (B) the disk reads happen as page faults inside the matrix multiplies, so they "
         "can't be timed apart from compute; its disk-read column shows bytes only. Its working set also "
-        "counts mapped file pages the OS can drop at any time; private bytes count only memory the process "
-        "owns. Disk read totals are system-wide device reads during the run (they include OS paging).",
+        'counts mapped file pages the OS can drop at any time. "Committed" is the process\'s private memory '
+        "as Windows accounts it: everything it allocated, including pages it never touched (e.g. the "
+        "zero-filled KV cache), so it can exceed the working set. Disk read totals are system-wide device "
+        "reads during the run, OS paging included.",
     ]
     for r in failures:
         lines += [
@@ -224,7 +227,15 @@ def main() -> None:
     ap.add_argument("--only", nargs="*", choices=[b["id"] for b in BASELINES], default=None)
     ap.add_argument("--timeout-scale", type=float, default=1.0)
     ap.add_argument("--out", type=Path, default=BENCHMARK_RESULTS_DIR / "phase2_baselines.json")
+    ap.add_argument(
+        "--report", action="store_true", help="only regenerate the doc from the last saved record"
+    )
     args = ap.parse_args()
+    if args.report:
+        record = json.loads(args.out.read_text(encoding="utf-8"))[-1]
+        DOC.write_text(format_markdown(record, args.out), encoding="utf-8")
+        print(f"wrote {DOC}")
+        return
 
     rt = RuntimeConfig.load(args.config)
     prompts = json.loads(rt.prompts_file.read_text(encoding="utf-8"))["prompts"]

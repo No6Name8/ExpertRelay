@@ -84,6 +84,40 @@ Source: `benchmarks/results/int8_kernels.json`, commit `90b5e9e`, clean tree.
   Reconstruction error per tensor is in `docs/expert-store.md`: `lm_head`
   is the worst at 1.92%, routed experts average 0.83%.
 
+## Phase 2 baselines: what the numbers mean
+
+Full table: `docs/phase2-baselines.md` (generated from
+`benchmarks/results/phase2_baselines.json`, two runs at `90b5e9e` and
+`5406ea5`; the second, clean run is the one shown).
+
+- **Ours (C): 0.70 decode tok/s, 12.5 s to first token, 1.7 GB working
+  set.** Per decode token: 0.47 s reading 834 MB of experts (96 records)
+  from the SSD, 0.95 s computing, so **compute-bound**, about 2:1. Prefill
+  is where most expert reads happen: an 18-token prompt reads ~900
+  expert records (7.8 GB), because across 18 tokens x 4 picks almost every
+  expert in every layer gets used. That's why the first token takes
+  10-16 s.
+- **OS paging (B): 0.41 tok/s, 30 s to first token.** Likely causes, not
+  separately measured: page faults bring the file in a few pages at a time
+  and stall the matmul that touched them, versus one 8.7 MB read per expert
+  in C; and in B the resident weights are memory-mapped too, so they can be
+  evicted and re-read like the experts.
+- **Normal load (A): never finished loading.** Windows let it commit
+  14.6 GB (the whole store) but kept only 4.7 GB resident. The rest went to
+  the page file, and the machine spent the whole 15-minute timeout paging:
+  451 GB of disk reads system-wide. That is the failure mode on an 8 GB
+  machine: not an out-of-memory error, but thrashing with no progress.
+- **Correctness on the real model:** C and B produced identical tokens for
+  all 4 prompts x 32 tokens, and so did the second run of each.
+- **Output quality isn't evaluated.** The sample outputs are fluent in
+  English, code and math, but the Arabic sample states a wrong date for
+  Cairo and repeats itself. That's plausible for a base model under greedy
+  decoding, and it's from int8 weights whose effect vs. bf16 is still
+  pending (reference check, below). No quality benchmark has been run.
+- **Timing noise:** the runs share the machine with VS Code, Defender and
+  a background download. Free RAM at start was 4.2 GB (run 1) and 3.0 GB
+  (run 2); decode speed differed by 4% between runs.
+
 ## Correctness rule, as applied now
 
 CLAUDE.md: output must match the reference token-for-token. Since the int8

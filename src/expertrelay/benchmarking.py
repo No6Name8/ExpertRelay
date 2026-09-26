@@ -88,7 +88,7 @@ def process_memory_mb(pid: int) -> tuple[float, float] | None:
 
     Both are reported because they disagree for memory-mapped files. The
     working set counts mapped file pages, which the OS can drop at any time;
-    private bytes count only memory the process owns. On non-Windows
+    private bytes count memory the process committed, touched or not. On non-Windows
     platforms psutil has neither, and both fall back to RSS."""
     try:
         info = psutil.Process(pid).memory_info()
