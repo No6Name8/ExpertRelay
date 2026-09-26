@@ -183,13 +183,16 @@ Results: `docs/phase3-analysis.md` (base store; generated from
   OTHER half (or, per category, the other categories); pinned experts still
   pay their first load. Belady needs the future: an upper bound, not a
   buildable policy.
-- **Known issue: the even/odd halves are whole categories.** The run
-  cycles through the 6 categories, so taking every other prompt in run
-  order puts {en, ar_gulf, math} in one half and {ar_msa, code, chat} in
-  the other. The pinned policy's "all prompts" hot set therefore comes from
-  three OTHER categories, which is stricter than intended and likely
-  understates it. Not rerun yet; Phase 3.5 (below) splits within each
-  category instead.
+- **Fixed: the halves were whole categories.** Until commit c14de18,
+  "every other prompt in run order" put {en, ar_gulf, math} in one half
+  and {ar_msa, code, chat} in the other, because the run cycles through
+  the 6 categories. The halves are now odd/even prompt numbers within
+  every category (`phase3_analysis.prompt_halves`), and the analysis was
+  rerun (the last record in `phase3_analysis_<store>.json`). It made almost
+  no difference: the "LRU + pinned hot set" decode hit rate went from
+  4.8 / 24.2 / 37.7 / 63.6% to 4.9 / 24.2 / 37.7 / 63.7% at 96 / 192 /
+  384 / 720 experts, still below plain LRU (13.4 / 25.2 / 40.4 / 66.2%).
+  The other rows moved by at most 0.1 point.
 - **Projected, not measured:** decode tokens/s at each cache size = Phase
   2's measured compute time per token + simulated misses x Phase 2's
   measured read time per expert. It assumes reads and compute don't
@@ -326,12 +329,36 @@ accounts for it.
 
 ## Performance: what's still naive
 
-- **Reads and compute don't overlap.** Each expert is read, then used, then
-  the next one is read. That's the no-cache, no-prediction baseline by
-  design; overlapping them is what the predictor is for.
-- **No expert is kept between tokens.** An expert picked by two
-  consecutive tokens is read from disk twice. That's the no-cache baseline
-  by design.
+- **Reads and compute don't overlap** with `--source unbuffered` (the
+  Phase 2 baseline, by design). `--source cached` with prefetch on
+  overlaps them; not measured yet.
+- **No expert is kept between tokens** with `--source unbuffered`: an
+  expert picked by two consecutive tokens is read from disk twice. The
+  cached source keeps them.
+- **A read takes ~4.9 ms in the runtime vs 2.08 ms in the disk benchmark:
+  cause not yet measured.** The timed code is the same in both: one
+  unbuffered 8.67 MB `ReadFile` at queue depth 1 into a reused
+  page-aligned buffer, with no copy or parsing inside the timed region.
+  What differs is the conditions, and reading the code and the file's
+  layout can only rank the suspects:
+  1. The benchmark reads a 1 GiB file it wrote seconds earlier, probably
+     still in the SSD's fast write cache (SLC); `experts.bin` (12.5 GB)
+     was written days earlier and spans far more of the drive.
+  2. The runtime reads in bursts of 4 with ~40 ms of compute between
+     them; the benchmark reads back to back, so the drive and PCIe link
+     never idle into a power-saving state.
+  3. Phase 2 ran while the bf16 download was writing to the same SSD.
+  4. `experts.bin` is in 227 extents (`fsutil file queryextents`): 182 of
+     1,440 records cross an extent boundary (mean 1.16 I/Os per read).
+     Real, but too small to explain 2.4x.
+  Tomorrow's check: time `read_into` on real records back to back, the
+  same with 40 ms gaps between bursts of 4, the profile's fresh file with
+  the same pattern, and single- vs multi-extent records, with nothing
+  else using the disk. Likely fixes, depending on the answer: rewrite
+  `experts.bin` as one fresh contiguous file; measure and use queue depth
+  2-4 (`io_threads`), which NVMe drives usually serve faster than queue
+  depth 1; and let the profile measure existing store records, so
+  projections use the right read time.
 - **Python-level loop over experts and layers** around BLAS calls. Fine for
   measuring where time goes; it has per-call overhead a compiled runtime
   wouldn't.

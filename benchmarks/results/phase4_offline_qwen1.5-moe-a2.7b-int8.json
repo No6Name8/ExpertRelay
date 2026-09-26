@@ -1,0 +1,517 @@
+[
+  {
+    "label": "phase4 offline: pinning layer-0 experts (simulation)",
+    "timestamp": "2026-09-26T20:26:07Z",
+    "git_commit": "b185393fad82e3798ff2d582d3da245ca88516b1",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 800043008
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 71543279616
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "store": "qwen1.5-moe-a2.7b-int8",
+      "repo_id": "Qwen/Qwen1.5-MoE-A2.7B",
+      "revision": "1a758c50ecb6350748b9ce0a99d2352fd9fc11c9"
+    },
+    "config": {
+      "runtime_config": "configs/runtime_cache.json",
+      "trace_dir": "models/traces/qwen1.5-moe-a2.7b-int8",
+      "capacities": [
+        144,
+        192,
+        288,
+        384,
+        480,
+        576
+      ],
+      "max_ram_gb": 1.0
+    },
+    "analysis": {
+      "test_prompts": [
+        "en_02",
+        "ar_msa_02",
+        "ar_gulf_02",
+        "code_02",
+        "math_02",
+        "chat_02",
+        "en_04",
+        "ar_msa_04",
+        "ar_gulf_04",
+        "code_04",
+        "math_04",
+        "chat_04",
+        "en_06",
+        "ar_msa_06",
+        "ar_gulf_06",
+        "code_06",
+        "math_06",
+        "chat_06",
+        "en_08",
+        "ar_msa_08",
+        "ar_gulf_08",
+        "code_08",
+        "math_08",
+        "chat_08",
+        "en_10",
+        "ar_msa_10",
+        "ar_gulf_10",
+        "code_10",
+        "math_10",
+        "chat_10",
+        "en_12",
+        "ar_msa_12",
+        "ar_gulf_12",
+        "code_12",
+        "math_12",
+        "chat_12",
+        "en_14",
+        "ar_msa_14",
+        "ar_gulf_14",
+        "code_14",
+        "math_14",
+        "chat_14",
+        "en_16",
+        "ar_msa_16",
+        "ar_gulf_16",
+        "code_16",
+        "math_16",
+        "chat_16"
+      ],
+      "decode_tokens": 6096,
+      "policy": {
+        "cache": "lru",
+        "prefetch_k": 8,
+        "prefetch_min_probability": 0.05,
+        "layer0_guess": null,
+        "calibration": {
+          "file": "prefetch_calibration_qwen1.5-moe-a2.7b-int8.json",
+          "git_commit": "c14de1895f5b60a52bd46512e05a820009021ec9",
+          "timestamp": "2026-09-26T20:25:22Z",
+          "store": "qwen1.5-moe-a2.7b-int8"
+        }
+      },
+      "capacities": [
+        144,
+        192,
+        288,
+        384,
+        480,
+        576
+      ],
+      "cache_ram_gb": {
+        "144": 1.248657408,
+        "192": 1.664876544,
+        "288": 2.497314816,
+        "384": 3.329753088,
+        "480": 4.16219136,
+        "576": 4.994629632
+      },
+      "pinned_ram_gb": 0.52027392,
+      "rows": {
+        "144": {
+          "belady": {
+            "decode_hit_rate": 0.4672702045056868,
+            "demand_reads_per_token": 51.14206036745407,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.8296945324794387,
+              "raw_ssd": 0.9425037952604801
+            }
+          },
+          "lru+k0": {
+            "decode_hit_rate": 0.17754128390201224,
+            "demand_reads_per_token": 78.95603674540682,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.7453199667485846,
+              "raw_ssd": 0.8936629686391033
+            },
+            "layer0_decode_hit_rate": 0.09481627296587926
+          },
+          "lru+k0+pin0": {
+            "decode_hit_rate": 0.041666666666666664,
+            "demand_reads_per_token": 92.0,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.7113926747554998,
+              "raw_ssd": 0.8724602270162929
+            },
+            "layer0_decode_hit_rate": 1.0
+          },
+          "lru+k8": {
+            "decode_hit_rate": 0.868407562335958,
+            "demand_reads_per_token": 12.632874015748031,
+            "prefetch_reads_per_token": 169.12286745406823,
+            "prefetches_used": 508017,
+            "prefetches_wasted": 522886,
+            "projected_tok_s": {
+              "phase2_runtime": 0.9839089453966681,
+              "raw_ssd": 1.0196590448902965
+            },
+            "layer0_decode_hit_rate": 0.00016404199475065617
+          },
+          "lru+k8+pin0": {
+            "decode_hit_rate": 0.9100605588363955,
+            "demand_reads_per_token": 8.634186351706036,
+            "prefetch_reads_per_token": 169.17257217847768,
+            "prefetches_used": 508198,
+            "prefetches_wasted": 523038,
+            "projected_tok_s": {
+              "phase2_runtime": 1.0032722136111825,
+              "raw_ssd": 1.028400785444426
+            },
+            "layer0_decode_hit_rate": 1.0
+          }
+        },
+        "192": {
+          "belady": {
+            "decode_hit_rate": 0.5315080243875766,
+            "demand_reads_per_token": 44.97522965879265,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.851055737255025,
+              "raw_ssd": 0.9540645435284868
+            }
+          },
+          "lru+k0": {
+            "decode_hit_rate": 0.25516048775153105,
+            "demand_reads_per_token": 71.50459317585302,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.7661941498891477,
+              "raw_ssd": 0.9062441801593955
+            },
+            "layer0_decode_hit_rate": 0.150877624671916
+          },
+          "lru+k0+pin0": {
+            "decode_hit_rate": 0.21450883092738407,
+            "demand_reads_per_token": 75.40715223097114,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.7551179547830564,
+              "raw_ssd": 0.8996111405053644
+            },
+            "layer0_decode_hit_rate": 1.0
+          },
+          "lru+k8": {
+            "decode_hit_rate": 0.8835746117672791,
+            "demand_reads_per_token": 11.176837270341208,
+            "prefetch_reads_per_token": 129.17060367454067,
+            "prefetches_used": 413201,
+            "prefetches_wasted": 374145,
+            "projected_tok_s": {
+              "phase2_runtime": 0.9908725245341566,
+              "raw_ssd": 1.0228249045547644
+            },
+            "layer0_decode_hit_rate": 0.08148786089238845
+          },
+          "lru+k8+pin0": {
+            "decode_hit_rate": 0.9100605588363955,
+            "demand_reads_per_token": 8.634186351706036,
+            "prefetch_reads_per_token": 169.16994750656167,
+            "prefetches_used": 508187,
+            "prefetches_wasted": 523009,
+            "projected_tok_s": {
+              "phase2_runtime": 1.0032722136111825,
+              "raw_ssd": 1.028400785444426
+            },
+            "layer0_decode_hit_rate": 1.0
+          }
+        },
+        "288": {
+          "belady": {
+            "decode_hit_rate": 0.630623564632546,
+            "demand_reads_per_token": 35.46013779527559,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.8862620571599731,
+              "raw_ssd": 0.9724692836172659
+            }
+          },
+          "lru+k0": {
+            "decode_hit_rate": 0.32649825021872264,
+            "demand_reads_per_token": 64.65616797900262,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.7864374454943198,
+              "raw_ssd": 0.9181237363699536
+            },
+            "layer0_decode_hit_rate": 0.21879101049868765
+          },
+          "lru+k0+pin0": {
+            "decode_hit_rate": 0.30540347495625547,
+            "demand_reads_per_token": 66.68126640419948,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.7803409228997341,
+              "raw_ssd": 0.914578612236253
+            },
+            "layer0_decode_hit_rate": 1.0
+          },
+          "lru+k8": {
+            "decode_hit_rate": 0.8906523403324584,
+            "demand_reads_per_token": 10.49737532808399,
+            "prefetch_reads_per_token": 122.63041338582677,
+            "prefetches_used": 404462,
+            "prefetches_wasted": 342974,
+            "projected_tok_s": {
+              "phase2_runtime": 0.9941559330187945,
+              "raw_ssd": 1.0243089953493862
+            },
+            "layer0_decode_hit_rate": 0.10166502624671916
+          },
+          "lru+k8+pin0": {
+            "decode_hit_rate": 0.9271704806430446,
+            "demand_reads_per_token": 6.991633858267717,
+            "prefetch_reads_per_token": 124.86286089238845,
+            "prefetches_used": 408807,
+            "prefetches_wasted": 352263,
+            "projected_tok_s": {
+              "phase2_runtime": 1.01144875066914,
+              "raw_ssd": 1.0320352399663575
+            },
+            "layer0_decode_hit_rate": 1.0
+          }
+        },
+        "384": {
+          "belady": {
+            "decode_hit_rate": 0.7064126749781278,
+            "demand_reads_per_token": 28.18438320209974,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.9152121155766377,
+              "raw_ssd": 0.9870287953927879
+            }
+          },
+          "lru+k0": {
+            "decode_hit_rate": 0.40009329888451445,
+            "demand_reads_per_token": 57.591043307086615,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.80847367995931,
+              "raw_ssd": 0.9307100486410684
+            },
+            "layer0_decode_hit_rate": 0.30048392388451445
+          },
+          "lru+k0+pin0": {
+            "decode_hit_rate": 0.40063156167979,
+            "demand_reads_per_token": 57.539370078740156,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.8086393995546384,
+              "raw_ssd": 0.9308033742864121
+            },
+            "layer0_decode_hit_rate": 1.0
+          },
+          "lru+k8": {
+            "decode_hit_rate": 0.901940480096238,
+            "demand_reads_per_token": 9.413713910761155,
+            "prefetch_reads_per_token": 103.49294619422572,
+            "prefetches_used": 362918,
+            "prefetches_wasted": 267829,
+            "projected_tok_s": {
+              "phase2_runtime": 0.9994378478789178,
+              "raw_ssd": 1.0266848770745074
+            },
+            "layer0_decode_hit_rate": 0.15657808398950132
+          },
+          "lru+k8+pin0": {
+            "decode_hit_rate": 0.932093449256343,
+            "demand_reads_per_token": 6.519028871391076,
+            "prefetch_reads_per_token": 112.36663385826772,
+            "prefetches_used": 381706,
+            "prefetches_wasted": 303149,
+            "projected_tok_s": {
+              "phase2_runtime": 1.0138261007272389,
+              "raw_ssd": 1.033085730744684
+            },
+            "layer0_decode_hit_rate": 1.0
+          }
+        },
+        "480": {
+          "belady": {
+            "decode_hit_rate": 0.7665084344925635,
+            "demand_reads_per_token": 22.415190288713912,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.93954777825745,
+              "raw_ssd": 0.9988871481137604
+            }
+          },
+          "lru+k0": {
+            "decode_hit_rate": 0.4789274387576553,
+            "demand_reads_per_token": 50.022965879265094,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.8334909446392519,
+              "raw_ssd": 0.9445808697152318
+            },
+            "layer0_decode_hit_rate": 0.3924294619422572
+          },
+          "lru+k0+pin0": {
+            "decode_hit_rate": 0.47151991743219596,
+            "demand_reads_per_token": 50.73408792650918,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.8310745242920996,
+              "raw_ssd": 0.9432599460017389
+            },
+            "layer0_decode_hit_rate": 1.0
+          },
+          "lru+k8": {
+            "decode_hit_rate": 0.911135375656168,
+            "demand_reads_per_token": 8.531003937007874,
+            "prefetch_reads_per_token": 89.38254593175853,
+            "prefetches_used": 329098,
+            "prefetches_wasted": 215599,
+            "projected_tok_s": {
+              "phase2_runtime": 1.0037819566941004,
+              "raw_ssd": 1.0286283421446982
+            },
+            "layer0_decode_hit_rate": 0.21296751968503938
+          },
+          "lru+k8+pin0": {
+            "decode_hit_rate": 0.9391609251968503,
+            "demand_reads_per_token": 5.840551181102362,
+            "prefetch_reads_per_token": 98.7849409448819,
+            "prefetches_used": 352231,
+            "prefetches_wasted": 249795,
+            "projected_tok_s": {
+              "phase2_runtime": 1.0172586590088588,
+              "raw_ssd": 1.0345975728776673
+            },
+            "layer0_decode_hit_rate": 1.0
+          }
+        },
+        "576": {
+          "belady": {
+            "decode_hit_rate": 0.8152015666010499,
+            "demand_reads_per_token": 17.74064960629921,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.960236005852221,
+              "raw_ssd": 1.0087065095739511
+            }
+          },
+          "lru+k0": {
+            "decode_hit_rate": 0.5522217437664042,
+            "demand_reads_per_token": 42.9867125984252,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.8581802195284811,
+              "raw_ssd": 0.9578530586261251
+            },
+            "layer0_decode_hit_rate": 0.4777723097112861
+          },
+          "lru+k0+pin0": {
+            "decode_hit_rate": 0.551312677712161,
+            "demand_reads_per_token": 43.07398293963254,
+            "prefetch_reads_per_token": 0.0,
+            "prefetches_used": 0,
+            "prefetches_wasted": 0,
+            "projected_tok_s": {
+              "phase2_runtime": 0.8578650446231321,
+              "raw_ssd": 0.9576861603579864
+            },
+            "layer0_decode_hit_rate": 1.0
+          },
+          "lru+k8": {
+            "decode_hit_rate": 0.9197407452974629,
+            "demand_reads_per_token": 7.704888451443569,
+            "prefetch_reads_per_token": 77.81430446194226,
+            "prefetches_used": 299424,
+            "prefetches_wasted": 174734,
+            "projected_tok_s": {
+              "phase2_runtime": 1.0078818945742791,
+              "raw_ssd": 1.0304538800825638
+            },
+            "layer0_decode_hit_rate": 0.26911089238845143
+          },
+          "lru+k8+pin0": {
+            "decode_hit_rate": 0.9469734251968503,
+            "demand_reads_per_token": 5.090551181102362,
+            "prefetch_reads_per_token": 84.07201443569554,
+            "prefetches_used": 316451,
+            "prefetches_wasted": 195853,
+            "projected_tok_s": {
+              "phase2_runtime": 1.0210802130377372,
+              "raw_ssd": 1.0362739446978313
+            },
+            "layer0_decode_hit_rate": 1.0
+          }
+        }
+      },
+      "projection": {
+        "label": "PROJECTION from simulated reads + Phase 2 measured compute; not a measurement",
+        "compute_s_per_layer": 0.0397659603169755,
+        "read_s_per_expert": {
+          "phase2_runtime": 0.004905547496364502,
+          "raw_ssd": 0.0020847935483024847
+        },
+        "read_sources": {
+          "phase2_runtime": "benchmarks/results/phase2_baselines.json @ 5406ea5",
+          "raw_ssd": "benchmarks/results/machine_profile_THE-BEAST.json @ fb084d1"
+        }
+      }
+    },
+    "peak_rss_mb": 395.403264
+  }
+]
