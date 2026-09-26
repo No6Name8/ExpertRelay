@@ -351,7 +351,7 @@ def _write_test_file(path: Path, size: int, seed: int) -> None:
             remaining -= n
 
 
-def _device_read_bytes() -> int:
+def device_read_bytes() -> int:
     """Total bytes read from all physical disks since boot, per the OS counters."""
     return sum(c.read_bytes for c in psutil.disk_io_counters(perdisk=True).values())
 
@@ -363,12 +363,12 @@ def _time_reads(path: Path, chunk_bytes: int, offsets: list[int]) -> tuple[float
         unbuffered_io.unbuffered_handle(path, write=False) as handle,
         unbuffered_io.aligned_buffer(chunk_bytes) as (_buf, addr),
     ):
-        device_before = _device_read_bytes()
+        device_before = device_read_bytes()
         start = time.perf_counter()
         for offset in offsets:
             unbuffered_io.read_at(handle, addr, offset, chunk_bytes)
         seconds = time.perf_counter() - start
-        return seconds, _device_read_bytes() - device_before
+        return seconds, device_read_bytes() - device_before
 
 
 def _measure_pattern(

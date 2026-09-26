@@ -10,67 +10,125 @@ each of these came to be.
 
 | Package | Status |
 |---|---|
-| `expertrelay.store` | Implemented: selective HF safetensors fetch, the full-model int8 expert store (`build_store`, `expert_reader`), and the older reduced MindSpore checkpoint converter (`convert_qwen_moe`). Nothing loads the int8 store into the model yet |
-| `expertrelay.runtime` | Implemented: hand-rolled MoE model, wire protocol, expert-serving process |
-| `expertrelay.manager` | Minimal implementation: static two-device expert dispatch. **Not yet** the general hot/cold, multi-device Manager described in README |
-| `expertrelay.cache` | **Placeholder only** — no eviction, no hot/cold placement, no runtime cache. Today's "placement" is a static assignment fixed at conversion time (`--process-a-experts`/`--process-b-experts`) |
-| `expertrelay.predictor` | **Placeholder only** — no prediction of any kind. Every expert call is synchronous and reactive: the router decides, then (and only then) the request goes out |
-| `expertrelay.bench` | Implemented: `moe_sanity_check` (tiny, self-contained), `run_local_split_demo` (orchestrates the two-process simulation) |
+| `expertrelay.store` | Implemented: the full-model int8 expert store (`build_store`, `expert_reader`), selective HF fetch, pinned tokenizer, and a downloader for the original checkpoint (reference check only) |
+| `expertrelay.runtime` | Implemented: the full 24-layer Qwen1.5-MoE-A2.7B forward pass from the int8 store, with KV cache and greedy generation. Single device |
+| `expertrelay.manager` | Only the machine profile. **No multi-device Manager exists** (see "Device split" below) |
+| `expertrelay.cache` | **Placeholder only.** Every routed expert is read from disk each time it's picked and dropped after use |
+| `expertrelay.predictor` | **Placeholder only.** Expert reads are synchronous and reactive: the router decides, then the read happens, then compute |
+| `expertrelay.bench` | `int8_kernels` (compute-path choice), `phase2_baselines` (normal load vs. OS paging vs. ours), `reference_check` (vs. HF transformers, bf16) |
 
-## The model: hand-rolled, not `mindformers`
+## Device split: removed for now
 
-The `mindformers` PyPI package is **not installed and not a dependency** —
-`pyproject.toml` lists only `mindspore`, `numpy`, `tokenizers`, `psutil`.
-`expertrelay.runtime.moe_model` is a from-scratch MindSpore implementation
-of Qwen1.5-MoE-A2.7B's architecture (HF `model_type: qwen2_moe`).
+The earlier two-process split (a coordinator and an expert server over a
+TCP socket) ran on the reduced 2-layer fp32 MindSpore model. Phase 2
+replaced that model with the full int8 runtime, and nothing else used the
+split, so it was deleted rather than left as dead code (last present at
+commit `93e5a7a`). **There is currently no networked-device path.** It
+will be rebuilt on the int8 runtime, where an `ExpertSource` backed by a
+remote device is the natural seam (`runtime/weights.py`).
 
-Why: MindFormers does not actually ship a `qwen2_moe` architecture (an
-earlier note in `docs/setup-notes.md` claiming it did was wrong and has
-been corrected there). What it has is `qwen3_moe` and `deepseek3` — neither
-is Qwen1.5-MoE-A2.7B's real architecture. Rather than force-fit a different
-model family's code, this repo implements qwen2_moe directly.
+## The runtime computes in numpy, not MindSpore
 
-Parameter names follow MindFormers' naming *vocabulary* (`decoder.layers.N
-.self_attention...`, `mlp.router`, `gating`/`hidden`/`linear_fc2`, lifted
-from the real `mindformers/models/qwen3_moe/utils.py`) so a checkpoint from
-this repo reads like a MindFormers-style checkpoint — but it is not
-loadable by MindFormers' own model classes, and no code here imports
-`mindformers`.
+This is a measured choice, and it contradicts "built on MindSpore" for the
+CPU path, so it's stated up front. `bench/int8_kernels.py` timed every
+realistic way to compute an int8 x f32 matmul on this CPU (i5-12450H), on
+the model's real shapes. Decode step (one token), median ms, and relative
+error vs. float64 on the same int8 weights:
 
-**Deliberate simplification:** real MindFormers fuses Q/K/V into one
-`linear_qkv` matrix and stacks all experts into two `weight1`/`weight2`
-tensors (see `mindformers/checkpoint/converter/convert_op.py`) for its
-tensor-parallel / expert-parallel *training* kernels. This repo keeps
-attention and experts **unfused** — one `Linear` per Q/K/V/O and per
-expert projection — because that fusion is a training-performance detail
-orthogonal to what's being validated here (does the split/dispatch/
-conversion pipeline work). Labeled in `moe_model.py`'s module docstring.
+| Shape | numpy blocked (chosen) | numpy factored | numpy dequantize | MindSpore f32 | MindSpore f16 |
+|---|---|---|---|---|---|
+| attention 2048x2048 | **1.4** | 4.1 | 8.3 | 18.5 | 24.2 |
+| expert gate 1408x2048 | **1.0** | 4.3 | 6.1 | 11.3 | 16.9 |
+| expert down 2048x1408 | **1.0** | 4.2 | 5.6 | 6.9 | 16.0 |
+| shared expert 5632x2048 | **4.3** | 10.9 | 22.1 | 57.6 | 87.9 |
+| lm_head 151936x2048 | **119** | — | — | — | — |
+| relative error | 3e-7 | 3e-7 | 3e-7 | 4e-7 to 9e-7 | **3e-4** |
 
-## The reduced model
+- "numpy blocked" converts int8 rows to f32 a block at a time into a
+  reused, cache-sized buffer, and applies the per-row scale to the output
+  rather than to the weights (`runtime/int8_linear.py`). The block size is
+  128 rows for decode (fastest on all five shapes; 1 MB fits the L2 cache)
+  and 512 for prefill.
+- For a 32-token prefill it isn't uniformly fastest: plain "factored" edges
+  it out on two shapes (attention 5.6 vs. 5.9 ms, expert down 4.0 vs.
+  4.4 ms). It's still chosen because decode dominates generation time, and
+  it's the only option that can compute lm_head at all: the others need a
+  1.24 GB f32 copy of it, more RAM than this machine has free.
+- MindSpore f32 CPU ops were 5-13x slower on decode. MindSpore f16 was
+  slower still, with ~1000x the error. These are MindSpore's CPU kernels on
+  this machine; on Ascend hardware the choice would need re-measuring.
+- MindSpore is still a dependency (the kernel benchmark uses it), but the
+  runtime imports none of it.
 
-Every real run in this repo so far uses a truncated slice of the real
-Qwen1.5-MoE-A2.7B checkpoint (fetched live from Hugging Face — the weight
-*values* are real, only the *quantity* kept is reduced):
+## The runtime vs. the original model
 
-- **2 of the real 24 layers.**
-- **4 of the real 60 experts** (ids 0,1,2,3 in the validated run; the
-  `expertrelay.store.convert_qwen_moe` CLI takes `--num-layers`/
-  `--expert-ids` generically, so this isn't hardcoded — just what fits in
-  8GB RAM on the dev machine so far).
-- **Router softmax computed over the kept experts only** (4, not the real
-  60) — the real per-expert router weight *rows* are used, but the
-  denominator is smaller than the real model's, so routing-weight
-  magnitudes differ from what the real 60-expert model would produce.
-  Labeled in `MoELayer.construct`'s comment.
-- **`top_k` overridden to 2** (real model: 4). With only 4 total experts
-  loaded, "top-4 of 4" is "always use all of them" — it wouldn't exercise
-  local/remote dispatch at all. Labeled in `convert_qwen_moe.py`'s CLI help
-  and module docstring.
-- **Consequence for output quality:** the real `lm_head` was trained to
-  decode a residual stream that has been through 24 layers; feeding it one
-  that's been through 2 produces real vocabulary tokens (confirmed: the
-  prompt echoes back correctly) but not fluent continuations. This is
-  expected, not a bug — see the full example in `docs/setup-notes.md` §3.
+- **Architecture checked against Hugging Face transformers' own
+  Qwen2MoE code, automatically.** `tests/test_runtime_vs_hf_transformers.py`
+  builds a tiny random Qwen2MoE through the real store builder, loads the
+  dequantized int8 weights into `transformers.Qwen2MoeForCausalLM`, and
+  requires our logits to match HF's to 1e-4, both for prefill and for
+  token-by-token KV-cache decoding. The tiny model uses grouped KV heads
+  (2 KV for 4 query heads) to exercise that path, which the real model
+  (16/16) doesn't need.
+- **Real model vs. bf16: `bench/reference_check.py`, results in
+  `docs/reference-check.md`.** Layer-by-layer comparison of our int8
+  hidden states and logits against HF transformers on the ORIGINAL bf16
+  weights, same input. It needs those weights on disk, and they're
+  still downloading at the time of writing (28.6 GB). Until that file
+  exists, the real-model accuracy of the int8 runtime is **unmeasured**.
+- **int8 changes outputs compared to bf16.** Weight-only, symmetric,
+  per-output-channel int8 (Krishnamoorthi 2018; the weight side of Dettmers
+  et al. 2022 LLM.int8(), without its outlier decomposition) is lossy.
+  Reconstruction error per tensor is in `docs/expert-store.md`: `lm_head`
+  is the worst at 1.92%, routed experts average 0.83%.
+
+## Correctness rule, as applied now
+
+CLAUDE.md: output must match the reference token-for-token. Since the int8
+store, the reference is **the int8 model with every expert held in RAM and
+no cache or prediction**. bf16 is not the reference for that rule, because
+int8 alone already changes tokens; that cost is measured separately (see
+the reference check above).
+
+- `tests/test_runtime_correctness.py`: on a tiny model built through the
+  real store builder, experts read on demand (ours), fully in RAM
+  (reference), and memory-mapped all give **bit-identical** logits and the
+  same greedy tokens.
+- On the real 24-layer store, `bench/phase2_baselines.py` records every
+  setup's generated tokens and checks they're identical across the setups
+  that finish.
+
+## Resident weights: one exception to "in RAM"
+
+The resident part of the store (attention, shared expert, router, norms,
+lm_head: 1.56 GB) is read into RAM once. **The embedding table (311 MB) is
+not:** it's memory-mapped, and only the rows for actual tokens get paged in
+(one 2 KB row per token). On this 8 GB machine, with VS Code and the rest
+of the dev environment running, only about 1-2 GB is actually free, so the
+311 MB matters. `runtime/weights.py` documents this; the budget estimate
+accounts for it.
+
+## Generation
+
+- **Greedy only.** No sampling, temperature, or top-p.
+- **Fixed length:** exactly `max_new_tokens` (config) per prompt. EOS does
+  not stop generation, so every benchmark run does the same work.
+- **Base model, no chat template.** Prompts are plain text to continue.
+  The Chat model's store is being built for the demo, but Phase 2 runs on
+  the base store.
+- **One sequence at a time.** No batching across prompts.
+
+## Performance: what's still naive
+
+- **Reads and compute don't overlap.** Each expert is read, then used, then
+  the next one is read. That's the no-cache, no-prediction baseline by
+  design; overlapping them is what the predictor is for.
+- **No expert is kept between tokens.** An expert picked by two
+  consecutive tokens is read from disk twice. That's the no-cache baseline
+  by design.
+- **Python-level loop over experts and layers** around BLAS calls. Fine for
+  measuring where time goes; it has per-call overhead a compiled runtime
+  wouldn't.
 
 ## The int8 expert store (`expertrelay.store.build_store`)
 
@@ -78,32 +136,6 @@ The full Qwen1.5-MoE-A2.7B, all 24 layers and 1,440 routed experts, stored
 on the SSD in int8 at a pinned Hugging Face revision. Format and numbers:
 `docs/expert-store.md`.
 
-- **int8 changes the model's outputs compared to bf16.** Weight-only,
-  symmetric, per-output-channel int8 (Krishnamoorthi 2018; the weight side
-  of Dettmers et al. 2022 LLM.int8(), without its outlier decomposition) is
-  lossy. Measured per-matrix reconstruction error is in
-  `docs/expert-store.md`. A model computed from these weights will not
-  reproduce bf16 logits exactly, and greedy decoding can pick different
-  tokens.
-- **What the correctness rule compares against, from here on.** CLAUDE.md's
-  rule (ExpertRelay output must match the reference token-for-token) now
-  uses as its reference **this same int8 model, computed with every expert
-  resident and no cache or prediction**. Caching, prefetching, prediction
-  and device splits must not change a single token relative to that. They
-  move bytes around; they don't change arithmetic. bf16 is NOT the
-  reference for that rule, because int8 alone would already break it.
-- **The quality cost of int8 vs. bf16 is a separate, not-yet-done
-  measurement.** It needs the bf16 model evaluated side by side (e.g.
-  perplexity on a fixed text set, plus a token-agreement rate). The bf16
-  model is 28.6 GB and doesn't fit in this machine's 8 GB RAM, so that
-  evaluation waits for a bigger machine or a streamed evaluator.
-  Reconstruction error (above) is a proxy, not a quality measurement.
-- **Where int8 hurts most, by reconstruction error:** `lm_head` (1.92%,
-  the highest of any tensor in the store) and layer 0's attention
-  projections (1.4-1.7%). Routed experts are 0.83% on average, 1.03% at
-  worst. `lm_head` produces the logits greedy decoding picks from, so it
-  is the first tensor to keep in higher precision if int8 turns out to
-  change tokens too often. That's cheap: 311 MB more as fp16.
 - **Kept in fp32, deliberately:** norms, biases, the router (`mlp.gate`)
   and `shared_expert_gate`, about 12 MB total. That keeps the router itself
   from adding quantization error to routing decisions. It does NOT make
@@ -118,63 +150,27 @@ on the SSD in int8 at a pinned Hugging Face revision. Format and numbers:
   commit hash. The store's own sha256s protect everything after the
   download.
 - **Windows only** for the one-read loader (`expert_reader`), which uses
-  `FILE_FLAG_NO_BUFFERING`. The build itself is portable Python, but its
-  final verification pass uses the loader.
-- **Not wired into inference yet.** `runtime.moe_model` still runs the
-  reduced fp32 MindSpore checkpoint. Loading int8 experts from this store
-  into a forward pass is the next phase.
-
-## The device split
-
-- **Real**: two separate OS processes, a real TCP socket, a real
-  length-prefixed request/response protocol (`expertrelay.runtime
-  .net_proto`). `expertrelay.runtime.expert_server` (Process B) never
-  loads or sees anything but its assigned expert weights.
-- **Simulated**: both processes have so far only been run on
-  `127.0.0.1` on the same machine — not a real second device. Moving
-  Process B to a real machine needs zero code changes (`--host 0.0.0.0` on
-  the server, `--expert-host <real IP>` on the coordinator) — see
-  `docs/setup-notes.md` §6 for the exact steps, not yet executed.
-- **Not batched**: each token's each selected expert is dispatched in its
-  own request, one at a time, in a Python `for` loop
-  (`MoELayer.construct`). Fine for validating correctness; will pay real
-  per-call network latency once Process B is on an actual second machine.
-  No KV cache either — every generation step reruns the full sequence.
-
-## Correctness testing
-
-`tests/test_split_correctness.py` automates CLAUDE.md's correctness rule
-(split output must match a non-split reference token-for-token) — but
-against a **tiny synthetic model** (hidden_size=8, 2 layers, 4 experts,
-random weights), not the real 24-layer/60-expert Qwen1.5-MoE-A2.7B. The
-real-model version of this check (does splitting the ACTUAL converted
-checkpoint change the output vs. loading all 4 kept experts in one
-process) has been validated **manually**, once, and is documented — not
-re-run automatically — in `docs/setup-notes.md` §3, because it needs a
-live download and 3GB+ RAM, which an automated test suite that must stay
-fast and network-free (see below) can't assume.
+  `FILE_FLAG_NO_BUFFERING`. So the "ours" runtime path is Windows-only too.
+  The mmap and in-RAM expert sources are portable.
 
 ## Test suite constraints
 
-Tests must be deterministic and must not require network access — several
-tests in `tests/test_store_fetch_hf_tensors.py` and
-`tests/test_store_convert_qwen_moe.py` therefore only exercise the *offline*
-logic (byte-level bf16 decoding, tensor-name generation), not an actual
-Hugging Face fetch. The network path is real code, exercised manually
-during actual conversion runs, not covered by `pytest`.
+Tests must be deterministic and must not require network access. The
+Hugging Face fetch path is therefore only tested offline (byte-level bf16
+decoding, row ranges, name generation). Tests that use unbuffered reads are
+skipped on non-Windows platforms. The HF-equivalence test needs the dev
+extras (`torch`, `transformers`) and is skipped without them.
 
 ## Memory budget
 
 `expertrelay.memory_budget.enforce_ram_budget` is a real, enforced gate
-(raises `MemoryBudgetExceeded`, not just a logged warning) called before
-`expertrelay.store.convert_qwen_moe` proceeds past fetching tensors, and
-before `expertrelay.runtime.expert_server` / `expertrelay.manager
-.coordinator` load a checkpoint — all default to a 6GB ceiling
-(`--max-ram-gb`), leaving headroom under this dev machine's 8GB. It gates
-on an estimate (fetched-tensor bytes, or checkpoint file size) BEFORE the
-memory-heavy step, not on measured peak RSS after the fact — the latter is
-`expertrelay.benchmarking.peak_process_rss_mb`, recorded in every benchmark
-record but not itself a gate.
+(raises `MemoryBudgetExceeded`). It runs before the store build starts
+(`--max-ram-gb`, default 1.5 GB) and before the runtime loads any weights
+(`memory_budget_gb` in `configs/runtime.json`, default 2.5 GB). It gates on
+an estimate computed from real shapes (`runtime.generate
+.estimate_ram_bytes`), not on measured RSS. Measured peak RSS is recorded in
+every benchmark (`expertrelay.benchmarking`). The normal-load baseline runs
+with the gate disabled on purpose, to show what happens without it.
 
 ## Machine profile (`expertrelay.manager.profile`)
 
@@ -196,22 +192,16 @@ record but not itself a gate.
   before it's read, so it most likely sits in the drive's SLC write cache.
   That can read faster than data that has aged into TLC/QLC NAND. Treat the
   numbers as an upper bound for loading cold experts that have sat on disk
-  for a while. Getting around this means writing past the SLC cache (often
-  tens of GB) on every profile run, which isn't worth the time or the SSD
-  wear.
+  for a while.
 - **"Random" means large reads at random offsets**, one expert-sized chunk
   (8.65 or 17.30 MB) at a random 4 KiB-aligned offset. That's the realistic
-  pattern for loading one expert. It is not a 4K random-IOPS test, and the
-  two numbers shouldn't be compared.
-- **Single-threaded, queue depth 1.** Reads are synchronous, one at a time.
-  NVMe drives can go faster with several requests in flight, so this is a
-  lower bound on what an async/multi-queue loader could get. It is also the
-  correct baseline for today's one-expert-at-a-time `MoELayer`.
+  pattern for loading one expert. It is not a 4K random-IOPS test.
+- **Single-threaded, queue depth 1**, like the runtime's expert loads today.
 
-## Benchmarks
+## Downloads
 
-See `benchmarks/README.md` for per-file caveats. The short version: current
-numbers (tokens/sec on the local two-process simulation) are a
-correctness/plumbing baseline, not a throughput measurement — no KV cache,
-no batching, loopback "network." Don't compare them to a future real
-two-machine number without re-reading those caveats.
+The original bf16 checkpoint (reference check) and the Chat model's
+weights (demo store) are fetched over this machine's ~0.5-2 MB/s link, so
+each takes many hours. `store/download_checkpoint.py` runs with
+`HF_HUB_DISABLE_XET=1`: the default Xet backend stalled after ~730 MB, with
+no bytes written for 5+ minutes, while plain HTTP resumed immediately.

@@ -76,15 +76,20 @@ def resolve_revision(repo_id: str, revision: str = "main") -> str:
     return json.loads(_http_get(url))["sha"]
 
 
+def fetch_file(repo_id: str, filename: str, revision: str) -> bytes:
+    """One small repo file (config, index, tokenizer) at a revision."""
+    return _http_get(_resolve_url(repo_id, filename, revision))
+
+
 def fetch_config(repo_id: str, revision: str = "main") -> dict:
     """The model's config.json. Architecture dimensions always come from here,
     never from constants in this repo."""
-    return json.loads(_http_get(_resolve_url(repo_id, "config.json", revision)))
+    return json.loads(fetch_file(repo_id, "config.json", revision))
 
 
 def fetch_index(repo_id: str, revision: str = "main") -> dict:
     """Download the (small) *.safetensors.index.json weight map."""
-    return json.loads(_http_get(_resolve_url(repo_id, "model.safetensors.index.json", revision)))
+    return json.loads(fetch_file(repo_id, "model.safetensors.index.json", revision))
 
 
 @dataclass

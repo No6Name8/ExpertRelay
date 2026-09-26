@@ -1,0 +1,25 @@
+{
+  "description": "Fixed Phase 2 prompt set. Plain-text continuations, because the Phase 2 store is the BASE model (no chat template). Greedy decoding, a fixed number of new tokens (see configs/runtime.json); EOS does not stop generation, so every run does the same amount of work.",
+  "prompts": [
+    {
+      "id": "en",
+      "language": "English",
+      "text": "The printing press, invented by Johannes Gutenberg around 1440, changed Europe because"
+    },
+    {
+      "id": "ar",
+      "language": "Arabic",
+      "text": "تعد مدينة القاهرة من أكبر المدن في العالم العربي، ويعود تاريخها إلى"
+    },
+    {
+      "id": "code",
+      "language": "Python",
+      "text": "def is_prime(n: int) -> bool:\n    \"\"\"Return True if n is a prime number.\"\"\"\n"
+    },
+    {
+      "id": "math",
+      "language": "English (math)",
+      "text": "Question: A train travels 180 km in 2 hours and 15 minutes. What is its average speed in km/h?\nAnswer: Let's compute step by step."
+    }
+  ]
+}

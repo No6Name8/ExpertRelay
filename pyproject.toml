@@ -19,16 +19,21 @@ dependencies = [
 dev = [
     "pytest",
     "ruff",
+    # reference implementation for tests/test_runtime_vs_hf_transformers.py
+    # and bench/reference_check.py; never imported by the runtime
+    "torch",
+    "transformers==5.17.0",
+    "huggingface_hub",
+    "safetensors",
 ]
 
 [project.scripts]
-expertrelay-convert = "expertrelay.store.convert_qwen_moe:main"
-expertrelay-expert-server = "expertrelay.runtime.expert_server:main"
-expertrelay-coordinator = "expertrelay.manager.coordinator:main"
-expertrelay-demo = "expertrelay.bench.run_local_split_demo:main"
-expertrelay-moe-sanity-check = "expertrelay.bench.moe_sanity_check:main"
 expertrelay-profile = "expertrelay.manager.profile:main"
 expertrelay-build-store = "expertrelay.store.build_store:main"
+expertrelay-download-checkpoint = "expertrelay.store.download_checkpoint:main"
+expertrelay-generate = "expertrelay.runtime.generate:main"
+expertrelay-int8-kernels = "expertrelay.bench.int8_kernels:main"
+expertrelay-phase2-baselines = "expertrelay.bench.phase2_baselines:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

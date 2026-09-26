@@ -79,6 +79,17 @@ def peak_process_rss_mb() -> float:
     return peak_bytes / 1e6
 
 
+def process_peak_rss_mb(pid: int) -> float | None:
+    """Peak memory of ANOTHER process so far (same caveats as above), or None
+    if it has already exited. Benchmarks poll this for child processes that
+    may crash before they can report their own peak."""
+    try:
+        info = psutil.Process(pid).memory_info()
+    except psutil.Error:
+        return None
+    return (getattr(info, "peak_wset", None) or info.rss) / 1e6
+
+
 def append_benchmark_record(path: Path, record: dict) -> None:
     """Append one JSON record to a list-of-records file, creating it if needed."""
     path = Path(path)

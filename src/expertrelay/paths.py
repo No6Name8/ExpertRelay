@@ -13,6 +13,5 @@ from pathlib import Path
 from expertrelay import REPO_ROOT
 
 MODELS_ROOT: Path = REPO_ROOT / "models"
-DEFAULT_MODEL_DIR: Path = MODELS_ROOT / "reduced_qwen_moe"
 DEFAULT_EXPERT_STORE_DIR: Path = MODELS_ROOT / "qwen1.5-moe-a2.7b-int8"
 BENCHMARK_RESULTS_DIR: Path = REPO_ROOT / "benchmarks" / "results"
