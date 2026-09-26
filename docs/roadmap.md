@@ -20,7 +20,7 @@ No patent is planned.
 | A3 | The repo stays on Abdullah's account (github.com/No6Name8), with him as sole owner | done (currently private) |
 | A4 | A signed one-page team agreement before anyone sees the code or docs | pending |
 | A5 | Register Abdullah as team leader | pending |
-| A6 | Check the competition's IP rules and PSU's IP policy | pending |
+| A6 | Check the IP rules of the Huawei ICT Competition, Innovation Track (Middle East & Central Asia) | pending |
 | A7 | Full paper on arXiv once there are real results | pending |
 
 **Claims must be precise.** Expert caching and expert prediction are
@@ -28,7 +28,7 @@ prior work, not ours (e.g. Fate, arXiv:2502.12224; see README "Background
 reading"). What's new is the combination: **a mix of devices and SSDs
 treated as one virtual memory for MoE models, with a Manager deciding
 placement, eviction and prediction across the network.** Every public
-claim (concept note, paper, video, competition entry) is worded that way.
+claim (concept note, paper, video, Huawei ICT Competition, Innovation Track (Middle East & Central Asia) entry) is worded that way.
 
 ---
 
@@ -61,18 +61,18 @@ claim (concept note, paper, video, competition entry) is worded that way.
 
 **Rule: only show what really works. Every number on screen comes from a
 file in `benchmarks/results/`, and the file and commit are shown with
-it.** If a segment's phase isn't done when filming, the segment is cut or
-explicitly labeled "planned". Nothing is mocked up.
+it.** Parts that aren't finished when filming appear only as animations
+clearly labeled "in development", with no measured numbers on them.
 
-| # | Segment | Source of what's shown | Ready? |
+| # | Segment | Benchmark file(s) behind what's shown | Ready? |
 |---|---|---|---|
-| 1 | The problem: a 14.4 GB MoE model vs. an 8 GB laptop | `machine_profile_<host>.json`, `expert_store_build_<host>.json` | ready |
-| 2 | The normal way fails: loading the whole model thrashes without finishing | `phase2_baselines.json` (setup A) | ready |
-| 3 | ExpertRelay runs the full model on that laptop, live, with its tok/s and RAM | `phase2_baselines.json` (setup C) + live run | ready |
-| 4 | Same answer as the reference: identical tokens across setups; accuracy vs. bf16 | `phase2_baselines.json`, `reference_check.json` | partly (reference check pending) |
-| 5 | Inside the model: which experts it uses, and how predictably | `phase3_analysis_<store>.json` charts | after Phase 3 |
-| 6 | Virtual memory: the expert cache and its measured speedup | Phase 4 results | after Phase 4 |
-| 7 | Prediction switched on and off: speed changes, tokens don't | Phase 5 results | after Phase 5 |
-| 8 | The Manager deciding where experts live | Phase 6 results | after Phase 6 |
-| 9 | Two machines working as one | Phase 8 results | after Phase 8 |
-| 10 | Where it goes next (swarm, datacenter), labeled as plan, and credits | this roadmap, `AUTHORS` | ready (as plan) |
+| 1 | **The wall.** The 8 GB PC tries to load the model the normal way and fails | `phase2_baselines.json` (setup A: committed 14.6 GB, 4.7 GB resident, never finished loading) | ready |
+| 2 | **Why it matters.** Models are growing faster than hardware | none yet: needs a data file of cited public model sizes and hardware memory figures | pending |
+| 3 | **The 8 GB PC alone.** ~14 GB of model files next to 8 GB of RAM; network cable unplugged, airplane mode on; Task Manager on screen the whole time (RAM under budget, disk busy, network at 0); ExpertRelay runs the model; the answer matches the 32 GB PC's word for word | `expert_store_build_<host>.json`, `phase2_baselines.json` (setup C), a new offline-run record, a 32 GB PC comparison record | partly: runs fully offline today; the 32 GB PC comparison needs Phase 8; the demo uses the Chat store (building) |
+| 4 | **Memory slider.** RAM budget dragged from 32 GB down to 4 GB during generation; it slows smoothly and never crashes. Live brain map of experts: Arabic, English and code light up different experts | Phase 4 cache results (budget sweep); `phase3_analysis_<store>.json` (expert usage per category) | pending: needs the Phase 4 cache with a live-adjustable budget; brain-map data comes from Phase 3 |
+| 5 | **Prediction on/off switch**, live, with a prediction-accuracy counter | Phase 5 results; `phase3_analysis_<store>.json` (Fate-style predictor accuracy) | pending (Phase 5) |
+| 6 | **The Manager scans both PCs** and assigns roles automatically | Phase 6/8 results; `machine_profile_<host>.json` per PC | pending (Phases 6 and 8) |
+| 7 | **Two PCs.** The 32 GB PC fails alone on a bigger model; together they run it; per-PC "experts computed" counters show both working; pull the network cable and it recovers | two-PC results | pending (two-PC stage) |
+| 8 | **Moving the wall.** The 32 GB PC runs a ~235B MoE model from its 2 TB SSD: normal load fails, naive streaming crawls, ExpertRelay is faster | results on a ~235B MoE store | pending (needs a store for the larger model, and the 32 GB PC) |
+| 9 | **Datacenter simulator** results (100+ mixed chips) | datacenter-simulator results | pending |
+| 10 | **Scoreboard and impact** | the result files above; only what's finished at filming time | pending (grows as the phases finish) |

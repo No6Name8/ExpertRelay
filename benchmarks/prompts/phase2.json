@@ -1,5 +1,7 @@
 {
   "description": "Fixed Phase 2 prompt set. Plain-text continuations, because the Phase 2 store is the BASE model (no chat template). Greedy decoding, a fixed number of new tokens (see configs/runtime.json); EOS does not stop generation, so every run does the same amount of work.",
+  "source": "original, written for ExpertRelay by the project; no third-party text",
+  "license": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
   "prompts": [
     {
       "id": "en",

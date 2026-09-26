@@ -90,3 +90,24 @@ HOBBIT, SlimCaching) and community work on multi-device LLM clustering
 (llama.cpp RPC, Strix Halo clusters), applied specifically to cross-device
 scheduling rather than single-machine caching. Any method adapted from a
 specific paper is cited at its point of use in code, per `CLAUDE.md`.
+
+## Licence
+
+- **Code:** [Apache License 2.0](LICENSE). Anyone who redistributes it must
+  keep the [NOTICE](NOTICE) file.
+- **Documentation and the concept note:** [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- **Prompts written for this project** (`benchmarks/prompts/`): CC BY 4.0.
+  Each prompt file records the source and licence of its prompts.
+
+Created by Abdullah Ali Alanazi; see [AUTHORS](AUTHORS).
+
+## Third-party
+
+- **Model weights are not included in this repository.** They're downloaded
+  from Hugging Face, at pinned commits, under the Tongyi Qianwen licence:
+  [Qwen1.5-MoE-A2.7B](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B/blob/main/LICENSE)
+  and [Qwen1.5-MoE-A2.7B-Chat](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B-Chat/blob/main/LICENSE).
+  Converted int8 stores made from them fall under the same licence.
+- **MindSpore, numpy and PyTorch** (and the other packages listed in
+  `pyproject.toml`) are used under their own licences. None of their code
+  is included here.
