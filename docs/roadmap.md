@@ -15,7 +15,7 @@ No patent is planned.
 
 | # | Action | Status |
 |---|---|---|
-| A1 | Publish a concept note on Zenodo in Abdullah's name only: public, with a dated DOI | pending |
+| A1 | Publish a concept note on Zenodo in Abdullah's name only: public, with a dated DOI | done: [10.5281/zenodo.22980838](https://zenodo.org/records/22980838) |
 | A2 | Connect the GitHub repo to Zenodo, so every tagged release gets its own dated DOI | pending |
 | A3 | The repo stays on Abdullah's account (github.com/No6Name8), with him as sole owner | done (currently private) |
 | A4 | A signed one-page team agreement before anyone sees the code or docs | pending |

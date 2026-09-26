@@ -2,6 +2,9 @@
 
 Created by Abdullah Ali Alanazi.
 
+Concept note: [doi:10.5281/zenodo.22980838](https://doi.org/10.5281/zenodo.22980838)
+(Zenodo, https://zenodo.org/records/22980838).
+
 Virtual memory for AI: a Manager that understands every device in a
 cluster, keeps hot experts in RAM and cold experts on SSD or a networked
 peer, predicts which expert a Mixture-of-Experts (MoE) model will need
