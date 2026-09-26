@@ -37,12 +37,15 @@ error vs. float64 on the same int8 weights:
 
 | Shape | numpy blocked (chosen) | numpy factored | numpy dequantize | MindSpore f32 | MindSpore f16 |
 |---|---|---|---|---|---|
-| attention 2048x2048 | **1.4** | 4.1 | 8.3 | 18.5 | 24.2 |
-| expert gate 1408x2048 | **1.0** | 4.3 | 6.1 | 11.3 | 16.9 |
-| expert down 2048x1408 | **1.0** | 4.2 | 5.6 | 6.9 | 16.0 |
-| shared expert 5632x2048 | **4.3** | 10.9 | 22.1 | 57.6 | 87.9 |
-| lm_head 151936x2048 | **119** | — | — | — | — |
-| relative error | 3e-7 | 3e-7 | 3e-7 | 4e-7 to 9e-7 | **3e-4** |
+| attention 2048x2048 | **1.5** | 4.2 | 8.8 | 19.6 | 23.3 |
+| expert gate 1408x2048 | **1.1** | 2.9 | 5.8 | 11.4 | 17.6 |
+| expert down 2048x1408 | **1.2** | 4.9 | 5.9 | 7.1 | 16.0 |
+| shared expert 5632x2048 | **4.3** | 10.9 | 22.7 | 56.5 | 88.9 |
+| lm_head 151936x2048 | **118** | � | � | � | � |
+| relative error | 2e-7 to 3e-7 | 2e-7 to 3e-7 | 2e-7 to 3e-7 | 4e-7 to 9e-7 | **3e-4** |
+
+Source: `benchmarks/results/int8_kernels.json`, commit `90b5e9e`, clean tree.
+"�" means skipped: those paths need a 1.24 GB f32 copy of lm_head.
 
 - "numpy blocked" converts int8 rows to f32 a block at a time into a
   reused, cache-sized buffer, and applies the per-row scale to the output
@@ -50,11 +53,10 @@ error vs. float64 on the same int8 weights:
   128 rows for decode (fastest on all five shapes; 1 MB fits the L2 cache)
   and 512 for prefill.
 - For a 32-token prefill it isn't uniformly fastest: plain "factored" edges
-  it out on two shapes (attention 5.6 vs. 5.9 ms, expert down 4.0 vs.
-  4.4 ms). It's still chosen because decode dominates generation time, and
-  it's the only option that can compute lm_head at all: the others need a
+  it out on the expert down-projection (4.1 vs. 4.7 ms). It's still chosen
+  because decode dominates generation time, and it's the only option that can compute lm_head at all: the others need a
   1.24 GB f32 copy of it, more RAM than this machine has free.
-- MindSpore f32 CPU ops were 5-13x slower on decode. MindSpore f16 was
+- MindSpore f32 CPU ops were 6-13x slower on decode. MindSpore f16 was
   slower still, with ~1000x the error. These are MindSpore's CPU kernels on
   this machine; on Ascend hardware the choice would need re-measuring.
 - MindSpore is still a dependency (the kernel benchmark uses it), but the
