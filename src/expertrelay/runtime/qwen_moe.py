@@ -1,11 +1,9 @@
 """Qwen1.5-MoE-A2.7B (HF model_type "qwen2_moe") forward pass in numpy, from
 the int8 expert store.
 
-Why numpy and not MindSpore ops: measured, not preferred. On this CPU the
-blocked int8 kernel (runtime.int8_linear) is 5-10x faster than MindSpore's
-CPU matmul for every real shape, and MindSpore f16 is slower still with
-~1000x the error (benchmarks/results/int8_kernels.json, summarized in
-docs/limitations.md).
+The arithmetic goes through a swappable compute backend (runtime.backends:
+numpy by default on CPU, MindSpore f32 for Ascend). This module holds the
+model structure and the cheap elementwise parts shared by every backend.
 
 The math follows Hugging Face transformers' Qwen2Moe implementation, which
 is also what the reference check compares against (bench.reference_check):
@@ -29,6 +27,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from expertrelay.runtime.backends import Backend, NumpyBackend
 from expertrelay.runtime.weights import EMBEDDING, ExpertSource, Int8Matrix, ResidentWeights
 
 
@@ -162,10 +161,17 @@ class StepTimings:
 
 
 class QwenMoe:
-    def __init__(self, config: ModelConfig, resident: ResidentWeights, experts: ExpertSource):
+    def __init__(
+        self,
+        config: ModelConfig,
+        resident: ResidentWeights,
+        experts: ExpertSource,
+        backend: Backend | None = None,
+    ):
         self.c = config
         self.resident = resident
         self.experts = experts
+        self.backend = backend or NumpyBackend()
 
     def _w(self, name: str):
         return self.resident[name]
@@ -174,9 +180,11 @@ class QwenMoe:
         w = self._w(name)
         b = self._w(bias) if bias else None
         if isinstance(w, Int8Matrix):
-            return w.linear(x, b)
-        y = x @ w.T
-        return y + b if b is not None else y
+            return self.backend.int8_linear(x, w.q, w.scales, b)
+        return self.backend.linear(x, w, b)
+
+    def _expert_linear(self, w: Int8Matrix, x: np.ndarray) -> np.ndarray:
+        return self.backend.int8_linear(x, w.q, w.scales)
 
     def _attention(
         self, layer: int, h: np.ndarray, cos: np.ndarray, sin: np.ndarray, cache: KVCache
@@ -200,12 +208,9 @@ class QwenMoe:
             rep = c.num_heads // c.num_kv_heads
             keys, values = np.repeat(keys, rep, axis=1), np.repeat(values, rep, axis=1)
 
-        scores = np.einsum("qhd,khd->hqk", q, keys) * np.float32(hd**-0.5)
         # causal: query at absolute position start+i sees keys 0..start+i
         allowed = np.arange(end)[None, :] <= (start + np.arange(n))[:, None]
-        scores = np.where(allowed[None, :, :], scores, np.float32(-np.inf))
-        attn = _softmax(scores)
-        out = np.einsum("hqk,khd->qhd", attn, values).reshape(n, c.hidden_size)
+        out = self.backend.attention(q, keys, values, allowed).reshape(n, c.hidden_size)
         return self._linear(p + "o_proj.weight", out)
 
     def _moe(self, layer: int, h: np.ndarray, timings: StepTimings, trace: ForwardTrace | None) -> np.ndarray:
@@ -228,7 +233,10 @@ class QwenMoe:
             timings.expert_bytes += self.experts.stats.bytes_read - before_b
             timings.expert_loads += 1
             x = h[token_idx]
-            y = w["down_proj"].linear(_silu(w["gate_proj"].linear(x)) * w["up_proj"].linear(x))
+            y = self._expert_linear(
+                w["down_proj"],
+                _silu(self._expert_linear(w["gate_proj"], x)) * self._expert_linear(w["up_proj"], x),
+            )
             np.add.at(routed, token_idx, y * weights[token_idx, slot][:, None])
             del w  # nothing kept: the next use of this expert reads it again
 

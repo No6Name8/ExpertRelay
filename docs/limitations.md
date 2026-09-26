@@ -11,8 +11,8 @@ each of these came to be.
 | Package | Status |
 |---|---|
 | `expertrelay.store` | Implemented: the full-model int8 expert store (`build_store`, `expert_reader`), selective HF fetch, pinned tokenizer, and a downloader for the original checkpoint (reference check only) |
-| `expertrelay.runtime` | Implemented: the full 24-layer Qwen1.5-MoE-A2.7B forward pass from the int8 store, with KV cache and greedy generation. Single device |
-| `expertrelay.manager` | Only the machine profile. **No multi-device Manager exists** (see "Device split" below) |
+| `expertrelay.runtime` | Implemented: the full 24-layer Qwen1.5-MoE-A2.7B forward pass from the int8 store, with KV cache and greedy generation, on a swappable compute backend (numpy, MindSpore f32). Single device |
+| `expertrelay.manager` | The machine profile and compute-backend selection. **No multi-device Manager exists** (see "Device split" below) |
 | `expertrelay.cache` | **Placeholder only.** Every routed expert is read from disk each time it's picked and dropped after use |
 | `expertrelay.predictor` | **Placeholder only.** Expert reads are synchronous and reactive: the router decides, then the read happens, then compute |
 | `expertrelay.bench` | `int8_kernels` (compute-path choice), `phase2_baselines` (normal load vs. OS paging vs. ours), `reference_check` (vs. HF transformers, bf16) |
@@ -27,11 +27,50 @@ commit `93e5a7a`). **There is currently no networked-device path.** It
 will be rebuilt on the int8 runtime, where an `ExpertSource` backed by a
 remote device is the natural seam (`runtime/weights.py`).
 
-## The runtime computes in numpy, not MindSpore
+## Compute backends: numpy on CPU, MindSpore for Ascend
 
-This is a measured choice, and it contradicts "built on MindSpore" for the
-CPU path, so it's stated up front. `bench/int8_kernels.py` timed every
-realistic way to compute an int8 x f32 matmul on this CPU (i5-12450H), on
+The arithmetic runs behind a small interface (`runtime/backends.py`: int8
+linear, f32 linear, attention) with two implementations:
+
+- **numpy** (`NumpyBackend`): the blocked int8 kernel plus numpy/BLAS.
+  Default on CPU.
+- **MindSpore f32** (`runtime/backend_mindspore.py`): every matmul and the
+  attention softmax as MindSpore ops. The path for Huawei Ascend.
+
+The Manager picks one from the machine profile
+(`manager/backend_selection.py`): an Ascend NPU means MindSpore, CPU only
+means numpy. The choice and its reason go into every run's record. The
+store, the expert sources, the cache, the predictor and the Manager only
+handle plain numpy int8 arrays and never import a backend or MindSpore; a
+test enforces this with a fresh-interpreter import check.
+
+Both backends are tested:
+- each primitive against float64 math;
+- the same greedy tokens on a test model built through the real store
+  builder, with logits within 1e-4 (different matmul kernels, so close
+  rather than bit-identical).
+
+In a one-off, unrecorded spot check on the real 24-layer store, both
+produced the same 6 tokens, with MindSpore about 10x slower end to end
+(0.07 vs. 0.72 tok/s). Only the kernel measurement below is a recorded
+benchmark.
+
+**What the MindSpore backend is not yet:**
+- It has never run on Ascend: this machine has no NPU, only the CPU wheel.
+  `device` goes straight to `mindspore.set_device`, so "Ascend" is one
+  argument away, but untested.
+- Arrays cross numpy <-> MindSpore on every call. On CPU that's harmless,
+  but on an NPU it would copy host <-> device each time. A fast Ascend path
+  needs weights uploaded once and activations kept on the device. Today
+  it's a correct path, not a fast one.
+- Elementwise work (norms, RoPE, activations, routing) stays in numpy for
+  both backends. Routing in particular: the same router logits pick the
+  same experts whichever backend computed them.
+
+### Why numpy is the CPU default: the measurement
+
+`bench/int8_kernels.py` timed every realistic way to compute an int8 x f32
+matmul on this CPU (i5-12450H), on
 the model's real shapes. Decode step (one token), median ms, and relative
 error vs. float64 on the same int8 weights:
 
@@ -59,8 +98,8 @@ Source: `benchmarks/results/int8_kernels.json`, commit `90b5e9e`, clean tree.
 - MindSpore f32 CPU ops were 6-13x slower on decode. MindSpore f16 was
   slower still, with ~1000x the error. These are MindSpore's CPU kernels on
   this machine; on Ascend hardware the choice would need re-measuring.
-- MindSpore is still a dependency (the kernel benchmark uses it), but the
-  runtime imports none of it.
+- MindSpore is imported only when its backend is selected (it costs
+  ~195 MB of RAM just to load; the budget estimate adds it then).
 
 ## The runtime vs. the original model
 

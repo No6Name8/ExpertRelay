@@ -31,7 +31,6 @@ from pathlib import Path
 
 import numpy as np
 
-from expertrelay.runtime.int8_linear import int8_linear
 from expertrelay.store.expert_reader import EXPERTS_BIN, ExpertStoreReader
 from expertrelay.store.layout import (
     KIND_INT8,
@@ -48,11 +47,12 @@ EMBEDDING = "model.embed_tokens.weight"
 
 @dataclass(frozen=True)
 class Int8Matrix:
+    """Plain data: int8 weights and their per-row scales. Knows nothing about
+    compute. Any backend can consume it (runtime.backends), which is what
+    keeps the store and expert sources backend-independent."""
+
     q: np.ndarray  # int8 [out, in]
     scales: np.ndarray  # float32 [out]
-
-    def linear(self, x: np.ndarray, bias: np.ndarray | None = None) -> np.ndarray:
-        return int8_linear(x, self.q, self.scales, bias)
 
     def dequantized_rows(self, rows: np.ndarray) -> np.ndarray:
         """Just the requested rows, as f32. The embedding lookup."""

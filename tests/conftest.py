@@ -32,6 +32,7 @@ def fake_profile() -> MachineProfile:
             free_bytes=100_000_000_000,
         ),
         software=SoftwareInfo(platform="TestOS-1.0", python_version="3.10.0", mindspore_version="2.7.1"),
+        accelerators=[],
         disk_read=DiskReadBenchmark(
             method="test",
             test_file_bytes=2**30,

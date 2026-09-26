@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import json
+import os
 import platform
 import re
 import shutil
@@ -166,6 +167,7 @@ class MachineProfile:
     cpu: CpuInfo
     drive: DriveInfo
     software: SoftwareInfo
+    accelerators: list[str]  # e.g. ["ascend"]; empty means CPU only
     disk_read: DiskReadBenchmark | None
 
     def to_dict(self) -> dict:
@@ -268,6 +270,28 @@ def measure_drive(path: Path = REPO_ROOT) -> DriveInfo:
         total_bytes=usage.total,
         free_bytes=usage.free,
     )
+
+
+# Where a Huawei Ascend install leaves evidence. The CANN toolkit's setup
+# script exports these variables; the driver creates /dev/davinci<N> device
+# nodes and installs under /usr/local/Ascend. Any one is enough.
+_ASCEND_ENV_VARS = ("ASCEND_HOME_PATH", "ASCEND_TOOLKIT_HOME", "ASCEND_OPP_PATH")
+_ASCEND_PATHS = ("/dev/davinci0", "/usr/local/Ascend/driver")
+
+
+def detect_accelerators(env: dict[str, str] | None = None, exists=None) -> list[str]:
+    """Accelerators this machine has that a compute backend could use.
+
+    Only Huawei Ascend is detected so far. Detection looks for the driver
+    and CANN toolkit, not a working device. `env`/`exists` are injectable so
+    tests don't depend on the machine they run on.
+    """
+    env = os.environ if env is None else env
+    exists = (lambda p: Path(p).exists()) if exists is None else exists
+    found = []
+    if any(env.get(v) for v in _ASCEND_ENV_VARS) or any(exists(p) for p in _ASCEND_PATHS):
+        found.append("ascend")
+    return found
 
 
 def measure_software() -> SoftwareInfo:
@@ -452,6 +476,7 @@ def collect_machine_profile(
         cpu=measure_cpu(),
         drive=measure_drive(REPO_ROOT),
         software=measure_software(),
+        accelerators=detect_accelerators(),
         disk_read=(
             measure_disk_read(REPO_ROOT, test_file_bytes=test_file_bytes, repeats=repeats, seed=seed)
             if measure_disk
@@ -483,6 +508,7 @@ def format_summary(profile: MachineProfile) -> str:
         f"{_or_unknown(c.logical_cores)} threads)",
         f"Drive:  {_or_unknown(d.model)} [{_or_unknown(d.bus_type)} {_or_unknown(d.media_type)}], "
         f"{_gb(d.free_bytes)} free of {_gb(d.total_bytes)}",
+        f"Accel:  {', '.join(profile.accelerators) or 'none (CPU only)'}",
     ]
     if profile.disk_read:
         lines.append(f"Disk reads ({profile.disk_read.method}):")
@@ -520,6 +546,7 @@ def format_markdown(profile: MachineProfile, *, timestamp: str, json_path: Path)
         f"| Drive free / total | {_gb(d.free_bytes)} / {_gb(d.total_bytes)} |",
         f"| OS | {s.platform} |",
         f"| Python / MindSpore | {s.python_version} / {s.mindspore_version} |",
+        f"| Accelerators | {', '.join(profile.accelerators) or 'none (CPU only)'} |",
     ]
     if profile.disk_read:
         r0 = profile.disk_read

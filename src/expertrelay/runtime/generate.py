@@ -27,8 +27,10 @@ import numpy as np
 
 from expertrelay import REPO_ROOT
 from expertrelay.benchmarking import peak_process_rss_mb
-from expertrelay.manager.profile import device_read_bytes, measure_memory
+from expertrelay.manager.backend_selection import BackendChoice, select_backend
+from expertrelay.manager.profile import collect_machine_profile, device_read_bytes, measure_memory
 from expertrelay.memory_budget import enforce_ram_budget
+from expertrelay.runtime.backends import BACKEND_NAMES, make_backend
 from expertrelay.runtime.int8_linear import BLOCK_ROWS_PREFILL
 from expertrelay.runtime.qwen_moe import KVCache, ModelConfig, QwenMoe
 from expertrelay.runtime.weights import (
@@ -52,6 +54,9 @@ SOURCES: dict[str, type[ExpertSource]] = {
 # Interpreter + numpy + tokenizers, measured on the dev machine before any
 # weights are loaded (~150 MB), rounded up.
 PROCESS_BASELINE_BYTES = 200 * 2**20
+# Importing MindSpore and running a first op: measured 195 MB on the dev
+# machine, rounded up. Only paid when the MindSpore backend is selected.
+MINDSPORE_BACKEND_BYTES = 256 * 2**20
 
 
 @dataclass(frozen=True)
@@ -78,7 +83,9 @@ def model_config(store_dir: Path) -> ModelConfig:
     return ModelConfig.from_hf(json.loads((Path(store_dir) / "store.json").read_text())["source"]["config"])
 
 
-def estimate_ram_bytes(store_dir: Path, config: ModelConfig, max_seq: int, source: str) -> int:
+def estimate_ram_bytes(
+    store_dir: Path, config: ModelConfig, max_seq: int, source: str, backend: str = "numpy"
+) -> int:
     """Upper-bound estimate of this process's RAM for a run, used to enforce
     the budget BEFORE loading anything. Every term is computed from real
     shapes, none are guessed except the fixed interpreter baseline."""
@@ -100,6 +107,7 @@ def estimate_ram_bytes(store_dir: Path, config: ModelConfig, max_seq: int, sourc
     activations = max_seq * widest * 4 * 6 + config.num_heads * max_seq * max_seq * 4 + tallest * 4
     return (
         PROCESS_BASELINE_BYTES
+        + (MINDSPORE_BACKEND_BYTES if backend == "mindspore" else 0)
         + resident
         + experts
         + KVCache.bytes_for(config, max_seq)
@@ -108,24 +116,34 @@ def estimate_ram_bytes(store_dir: Path, config: ModelConfig, max_seq: int, sourc
     )
 
 
-def load_model(store_dir: Path, source: str, max_seq: int, budget_gb: float | None) -> tuple[QwenMoe, dict]:
+def load_model(
+    store_dir: Path,
+    source: str,
+    max_seq: int,
+    budget_gb: float | None,
+    backend: BackendChoice | None = None,
+) -> tuple[QwenMoe, dict]:
     """budget_gb=None disables enforcement. Only the "normal load" baseline
-    does that, precisely to show what happens without it."""
+    does that, precisely to show what happens without it. backend=None lets
+    the Manager choose from this machine's profile."""
+    choice = backend or select_backend(collect_machine_profile(measure_disk=False))
     config = model_config(store_dir)
-    estimate = estimate_ram_bytes(store_dir, config, max_seq, source)
+    estimate = estimate_ram_bytes(store_dir, config, max_seq, source, choice.name)
     if budget_gb is not None:
-        enforce_ram_budget(estimate, budget_gb, f"running with --source {source}")
+        enforce_ram_budget(estimate, budget_gb, f"running with --source {source} --backend {choice.name}")
     t = time.perf_counter()
     resident = ResidentWeights.load(store_dir, mmap_everything=(source == "mmap"))
     experts = SOURCES[source](store_dir)
+    compute = make_backend(choice.name, choice.device)
     info = {
         "source": source,
+        "backend": asdict(choice),
         "estimated_ram_bytes": estimate,
         "budget_gb": budget_gb,
         "resident_ram_bytes": resident.ram_bytes,
         "load_seconds": time.perf_counter() - t,
     }
-    return QwenMoe(config, resident, experts), info
+    return QwenMoe(config, resident, experts, compute), info
 
 
 @dataclass
@@ -169,11 +187,16 @@ def generate(
 
 
 def run_prompts(
-    store_dir: Path, source: str, rt: RuntimeConfig, prompts: list[dict], budget_gb: float | None
+    store_dir: Path,
+    source: str,
+    rt: RuntimeConfig,
+    prompts: list[dict],
+    budget_gb: float | None,
+    backend: BackendChoice | None = None,
 ) -> dict:
     """Load once, generate for every prompt, return everything as plain data."""
     free_at_start = measure_memory().available_bytes
-    model, info = load_model(store_dir, source, rt.max_seq, budget_gb)
+    model, info = load_model(store_dir, source, rt.max_seq, budget_gb, backend)
     tokenizer = load_tokenizer(store_dir)
     results = []
     for p in prompts:
@@ -204,6 +227,12 @@ def main() -> None:
     ap.add_argument("--config", type=Path, default=DEFAULT_RUNTIME_CONFIG)
     ap.add_argument("--store-dir", type=Path, default=None, help="default: store_dir from the config")
     ap.add_argument("--source", choices=sorted(SOURCES), default="unbuffered")
+    ap.add_argument(
+        "--backend",
+        choices=["auto", *BACKEND_NAMES],
+        default="auto",
+        help="compute backend; auto = the Manager chooses from this machine's profile",
+    )
     ap.add_argument("--prompt", default=None)
     ap.add_argument("--all-prompts", action="store_true", help="run every prompt in the config's prompt set")
     ap.add_argument("--max-new-tokens", type=int, default=None)
@@ -224,7 +253,12 @@ def main() -> None:
     else:
         ap.error("give --prompt or --all-prompts")
 
-    out = run_prompts(store_dir, args.source, rt, prompts, None if args.no_budget else rt.memory_budget_gb)
+    backend = (
+        None if args.backend == "auto" else BackendChoice(args.backend, None, "chosen on the command line")
+    )
+    out = run_prompts(
+        store_dir, args.source, rt, prompts, None if args.no_budget else rt.memory_budget_gb, backend
+    )
     if args.json_out:
         args.json_out.write_text(json.dumps(out, indent=1, ensure_ascii=False), encoding="utf-8")
     for p in out["prompts"]:

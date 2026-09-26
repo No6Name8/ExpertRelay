@@ -1,8 +1,10 @@
 # ExpertRelay
 
 "Virtual memory for AI": MoE expert caching, prediction, and prefetching
-across RAM, SSD, and networked devices. Built on MindSpore 2.7.1 (CPU) +
-MindFormers' naming conventions. Primary dev machine: Windows, 8GB RAM, no
+across RAM, SSD, and networked devices. MindSpore backend for Ascend,
+numpy backend on CPU, selected by the Manager based on the machine
+(`runtime/backends.py`, `manager/backend_selection.py`; the measured reason
+is in `docs/limitations.md`). Primary dev machine: Windows, 8GB RAM, no
 GPU/Ascend — every design choice here has to work under that constraint
 first, then scale up.
 
@@ -58,6 +60,13 @@ network-dependent path gets documented instead, see
 prediction) must cite the paper in a comment at the point it's implemented
 — not just in a README reference list.
 
+**Nothing but the runtime knows the compute backend.** The store, expert
+sources, cache, predictor and Manager deal only in plain numpy arrays and
+backend *names*. They never import `runtime.backends`, a backend, or
+MindSpore. `tests/test_runtime_backends.py` enforces this. Any new compute
+operation goes into the backend interface and gets an implementation and a
+test for every backend.
+
 **Machine facts come from one place.** RAM, CPU, drive, and disk-speed
 information comes only from `expertrelay.manager.profile`. Don't call
 psutil/platform/PowerShell for machine facts anywhere else; extend the
@@ -77,8 +86,8 @@ src/expertrelay/
   store/      persistence: fetching + converting expert weights (HF Hub -> local checkpoint)
   cache/      hot/cold expert placement + eviction across RAM/SSD/network (placeholder, see limitations.md)
   predictor/  predicting which expert will be needed next (placeholder, see limitations.md)
-  manager/    understands every device, dispatches each request to the right one
-  runtime/    the actual MoE forward pass, wire protocol, expert-serving process
+  manager/    machine profile, compute-backend selection; later: device placement and dispatch
+  runtime/    the MoE forward pass and the compute backends (numpy, MindSpore)
   bench/      benchmark and demo scripts -- each writes to benchmarks/results/
 ```
 
