@@ -93,8 +93,8 @@ specific paper is cited at its point of use in code, per `CLAUDE.md`.
 
 ## Licence
 
-- **Code:** [Apache License 2.0](LICENSE). Anyone who redistributes it must
-  keep the [NOTICE](NOTICE) file.
+- **Code:** all rights reserved, Copyright 2026 Abdullah Ali Alanazi. An
+  open-source licence will be chosen at publication.
 - **Documentation and the concept note:** [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - **Prompts written for this project** (`benchmarks/prompts/`): CC BY 4.0.
   Each prompt file records the source and licence of its prompts.
