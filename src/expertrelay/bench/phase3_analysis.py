@@ -233,57 +233,69 @@ def by_layer(traces: list[Trace], fn, phase: int | None = None) -> list:
 
 
 def hot_keys_from(traces: list[Trace]) -> list[int]:
-    """(layer, expert) keys, most-loaded first, over these traces' access streams."""
+    """(layer, expert) keys, most-loaded first, over these traces' access streams.
+    Empty with no traces: the pinned policy then pins nothing (plain LRU)."""
+    if not traces:
+        return []
     keys, _ = concat_streams(traces)
     counts = np.bincount(keys)
     order = np.argsort(-counts, kind="stable")
     return [int(k) for k in order if counts[k] > 0]
 
 
-def simulate_curves(traces: list[Trace], hot_sets: list[list[int]]) -> dict:
-    """Hit rate vs capacity for every policy, overall and for decode accesses.
-
-    `hot_sets[i]` is the pinned policy's hot set for traces[i]. It must come
-    from other traces (the caller does leave-out), never from traces[i]."""
+def simulate_hits(traces: list[Trace], hot_set: list[int]) -> dict:
+    """Hit COUNTS at every capacity for every policy, over one stream: these
+    traces back to back, cache warm across them. `hot_set` (for the pinned
+    policy) must come from other traces, never from these."""
     h = traces[0].header
     num_keys = h["num_layers"] * h["num_experts"]
     parts = [access_stream(t) for t in traces]
     stream = np.concatenate([k for k, _ in parts])
     decode = np.concatenate([ph for _, ph in parts]) == PHASE_DECODE
-    total, total_decode = len(stream), int(decode.sum())
 
-    def rates(marks_per_cap: list[np.ndarray]) -> dict:
+    def counts(marks_per_cap: list[np.ndarray]) -> dict:
         return {
-            "hit_rate": [float(m.sum() / total) for m in marks_per_cap],
-            "decode_hit_rate": [float(m[decode].sum() / total_decode) for m in marks_per_cap],
+            "hits": [int(m.sum()) for m in marks_per_cap],
+            "decode_hits": [int(m[decode].sum()) for m in marks_per_cap],
         }
 
     dist = lru_stack_distances(stream, num_keys)
-    policies = {
-        "lru": {
-            "hit_rate": (lru_hit_counts(dist, CAPACITIES) / total).tolist(),
-            "decode_hit_rate": (lru_hit_counts(dist[decode], CAPACITIES) / total_decode).tolist(),
-        },
-        "lfu": rates([simulate_lfu(stream, c) for c in CAPACITIES]),
-    }
     nu = next_use_indices(stream)
-    policies["belady"] = rates([simulate_belady(stream, c, nu) for c in CAPACITIES])
-    # the pinned policy restarts per trace with that trace's (held-out) hot set;
-    # its LRU part is warm only within a trace, which slightly understates it
-    bounds = np.cumsum([0] + [len(k) for k, _ in parts])
-    pinned = []
-    for c in CAPACITIES:
-        marks = np.zeros(total, dtype=bool)
-        for i, hot in enumerate(hot_sets):
-            seg = slice(bounds[i], bounds[i + 1])
-            marks[seg] = simulate_pinned(stream[seg], c, hot, PINNED_FRACTION)
-        pinned.append(marks)
-    policies["pinned_lru"] = rates(pinned)
+    return {
+        "accesses": len(stream),
+        "decode_accesses": int(decode.sum()),
+        "decode_tokens": _decode_tokens(traces),
+        "policies": {
+            "lru": {
+                "hits": lru_hit_counts(dist, CAPACITIES).tolist(),
+                "decode_hits": lru_hit_counts(dist[decode], CAPACITIES).tolist(),
+            },
+            "lfu": counts([simulate_lfu(stream, c) for c in CAPACITIES]),
+            "pinned_lru": counts([simulate_pinned(stream, c, hot_set, PINNED_FRACTION) for c in CAPACITIES]),
+            "belady": counts([simulate_belady(stream, c, nu) for c in CAPACITIES]),
+        },
+    }
+
+
+def hit_rate_curves(runs: list[dict]) -> dict:
+    """Pool one or more simulate_hits runs (e.g. the two held-out halves) into
+    hit rates. Every policy sees exactly the same streams."""
+    total = sum(r["accesses"] for r in runs)
+    total_decode = sum(r["decode_accesses"] for r in runs)
+    policies = {}
+    for name in runs[0]["policies"]:
+        hits = np.sum([r["policies"][name]["hits"] for r in runs], axis=0)
+        dec = np.sum([r["policies"][name]["decode_hits"] for r in runs], axis=0)
+        policies[name] = {
+            "hit_rate": (hits / total).tolist(),
+            "decode_hit_rate": (dec / total_decode).tolist(),
+        }
     return {
         "capacities": CAPACITIES,
         "accesses": total,
         "decode_accesses": total_decode,
-        "decode_accesses_per_token": total_decode / _decode_tokens(traces),
+        "decode_accesses_per_token": total_decode / sum(r["decode_tokens"] for r in runs),
+        "streams": len(runs),
         "policies": policies,
     }
 
@@ -341,18 +353,17 @@ def analyze(traces: list[Trace], record_bytes: int) -> dict:
             "by_category": {c: fn(np.concatenate([t.rec for t in ts]), top_k) for c, ts in by_cat.items()},
         }
 
-    # pinned hot sets never come from the data being replayed
-    half = {
-        0: [t for i, t in enumerate(traces) if i % 2 == 0],
-        1: [t for i, t in enumerate(traces) if i % 2 == 1],
+    # Pinned hot sets never come from the data being replayed. "all" is two
+    # held-out halves (even/odd prompts in run order), each replayed warm with
+    # the other half's hot set; every policy sees those same two streams.
+    halves = [traces[0::2], traces[1::2]]
+    runs = [simulate_hits(h, hot_keys_from(halves[1 - i])) for i, h in enumerate(halves) if h]
+    curves_all = hit_rate_curves(runs)
+    curves_by_cat = {
+        c: hit_rate_curves([simulate_hits(ts, hot_keys_from([t for t in traces if t.category != c]))])
+        for c, ts in by_cat.items()
     }
-    hot_all = [hot_keys_from(half[1 - i % 2]) for i in range(len(traces))]
     speeds = phase2_speeds(record_bytes)
-    curves_all = simulate_curves(traces, hot_all)
-    curves_by_cat = {}
-    for c, ts in by_cat.items():
-        hot = hot_keys_from([t for t in traces if t.category != c])
-        curves_by_cat[c] = simulate_curves(ts, [hot] * len(ts))
 
     return {
         "prompts": len(traces),

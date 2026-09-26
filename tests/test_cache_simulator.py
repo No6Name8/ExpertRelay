@@ -55,8 +55,9 @@ def test_lfu_tie_breaks_on_least_recent():
 def test_pinned_keys_always_hit():
     stream = np.array([5, 1, 2, 3, 5, 4, 5])
     # capacity 2, half pinned -> key 5 pinned; the other slot is LRU over 1,2,3,4 (no reuse)
+    # key 5 is pinned: its first use still misses (it must be loaded once), later uses hit
     assert simulate_pinned(stream, 2, hot_keys=[5, 1], pinned_fraction=0.5).tolist() == [
-        True,
+        False,
         False,
         False,
         False,
@@ -87,6 +88,8 @@ def test_properties_on_random_streams():
             lru = simulate_lru(stream, cap).sum()
             assert h == lru, f"trial {trial}: stack-distance LRU != direct LRU at C={cap}"
             best = simulate_belady(stream, cap, nu).sum()
+            pinned = simulate_pinned(stream, cap, list(np.argsort(-np.bincount(stream))), 0.5).sum()
+            assert best >= pinned, f"trial {trial}: pinned beat Belady at C={cap}"
             assert best >= lru and best >= simulate_lfu(stream, cap).sum(), (
                 f"trial {trial}: Belady not optimal at C={cap}"
             )

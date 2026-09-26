@@ -37,7 +37,7 @@ real reference is too large/slow/network-dependent for an automated test
 (e.g. the actual 24-layer/60-expert Qwen1.5-MoE-A2.7B), the test's
 reference is a smaller synthetic model exercising the same code path — and
 the manual, real-model validation this narrower test stands in for must be
-documented (see `test_split_correctness.py` for the pattern, and
+documented (see `tests/test_runtime_correctness.py` for the pattern, and
 `docs/limitations.md` for where the real-model check currently lives).
 
 **Tests.** pytest for all logic in `store/`, `cache/`, `predictor/`,

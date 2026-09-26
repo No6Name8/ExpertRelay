@@ -18,10 +18,10 @@ Policies:
   lfu       evict the key with the fewest accesses so far (counting its whole
             history, including before it was evicted); ties go to the least
             recently used.
-  pinned    a fixed "hot set" occupies part of the cache permanently
-            (preloaded, so always a hit); the rest is LRU. The hot set must
-            be chosen from DIFFERENT data than the stream being replayed, or
-            the result is an optimistic cheat.
+  pinned    a fixed "hot set" occupies part of the cache permanently: loaded
+            on first use like anything else, then never evicted. The rest is
+            LRU. The hot set must be chosen from DIFFERENT data than the
+            stream being replayed, or the result is an optimistic cheat.
   belady    evict the key whose next use is farthest in the future. Optimal
             for equal-size items; an upper bound no real cache can reach,
             because it needs the future. L. A. Belady, "A study of replacement
@@ -104,10 +104,15 @@ def simulate_pinned(
     stream: np.ndarray, capacity: int, hot_keys: list[int], pinned_fraction: float
 ) -> np.ndarray:
     """Pin the first `round(capacity * pinned_fraction)` of `hot_keys` (hottest
-    first); the rest of the capacity is LRU over the unpinned keys."""
+    first); the rest of the capacity is LRU over the unpinned keys. A pinned
+    key's first access is a miss (it has to be loaded once, as with any
+    policy); every later access hits."""
     n_pinned = min(len(hot_keys), round(capacity * pinned_fraction))
     is_pinned = np.isin(stream, np.asarray(hot_keys[:n_pinned], dtype=stream.dtype))
-    hits = is_pinned.copy()
+    _, first = np.unique(stream, return_index=True)
+    first_access = np.zeros(len(stream), dtype=bool)
+    first_access[first] = True
+    hits = is_pinned & ~first_access
     hits[~is_pinned] = simulate_lru(stream[~is_pinned], capacity - n_pinned)
     return hits
 

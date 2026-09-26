@@ -157,6 +157,42 @@ Full table: `docs/phase2-baselines.md` (generated from
   a background download. Free RAM at start was 4.2 GB (run 1) and 3.0 GB
   (run 2); decode speed differed by 4% between runs.
 
+## Phase 3: expert-usage traces and cache simulation
+
+Results: `docs/phase3-analysis.md` (base store; generated from
+`benchmarks/results/phase3_analysis_<store>.json`). What they are and aren't:
+
+- **Measured:** which experts the int8 model's router picked, for 96 fixed
+  prompts x 128 greedy tokens (`runtime/expert_trace.py`, format in
+  `docs/trace-format.md`). Tracing is tested not to change any token.
+- **Routing of the int8 model, not bf16.** int8 can change which experts get
+  picked (see "The int8 expert store"). How much is part of the pending
+  reference check.
+- **Greedy decoding, fixed length, EOS ignored.** Past a natural ending,
+  the base model under greedy decoding often repeats itself, and
+  repetition probably inflates temporal locality and reuse compared with
+  sampled, naturally-ending text. The prompts are 16 per category, all
+  written for this repo: a small, specific sample, not a corpus.
+- **Simulated, not measured:** cache hit rates. The simulator replays
+  exactly what the runtime loads (each layer's unique experts per forward
+  call), but no cache exists in the runtime yet. Assumptions: all experts
+  the same size; capacity counted in experts (x 8.67 MB of RAM each); cache
+  warm across prompts; "all prompts" = two held-out halves of the run
+  (even/odd prompts), each replayed in run order, with every policy seeing
+  the same two streams. The pinned policy's hot set always comes from the
+  OTHER half (or, per category, the other categories); pinned experts still
+  pay their first load. Belady needs the future: an upper bound, not a
+  buildable policy.
+- **Projected, not measured:** decode tokens/s at each cache size = Phase
+  2's measured compute time per token + simulated misses x Phase 2's
+  measured read time per expert. It assumes reads and compute don't
+  overlap, and the same machine load as Phase 2. Every table and chart that
+  shows it is labeled a projection.
+- **Fate-style predictor: accuracy only.** The trace records Fate's
+  cross-layer guess (Fang et al., arXiv:2502.12224), and the analysis
+  measures how much of the true top-4 it catches. Nothing acts on it yet:
+  no prefetching exists, so no speedup from prediction has been measured.
+
 ## Correctness rule, as applied now
 
 CLAUDE.md: output must match the reference token-for-token. Since the int8
