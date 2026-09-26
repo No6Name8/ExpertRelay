@@ -85,9 +85,9 @@ POLICIES = ["lru", "predictive"]
 # this is the ceiling, checked before loading, with the Chat trace run and
 # a download sharing the machine.
 MAX_RAM_GB = 1.0
-RAM_PER_TRACE_BYTE = (
-    6  # estimated peak working memory per byte of trace file; the measured peak is in the JSON
-)
+# Estimated peak working memory per byte of trace file. Base store: 612 MB
+# measured peak for 92 MB of traces; each run's measured peak is in its JSON.
+RAM_PER_TRACE_BYTE = 7
 
 
 @dataclass
