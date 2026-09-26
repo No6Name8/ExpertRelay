@@ -1,0 +1,7 @@
+{
+  "memory_budget_gb": 2.5,
+  "max_seq": 192,
+  "max_new_tokens": 128,
+  "prompts_file": "benchmarks/prompts/phase3.json",
+  "store_dir": "models/qwen1.5-moe-a2.7b-int8"
+}

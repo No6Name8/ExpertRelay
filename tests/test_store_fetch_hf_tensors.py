@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from expertrelay.store import fetch_hf_tensors
 from expertrelay.store.fetch_hf_tensors import _bf16_bytes_to_fp32, _resolve_url
 
 
@@ -26,3 +27,10 @@ def test_bf16_to_fp32_known_values():
 def test_resolve_url_format():
     url = _resolve_url("Qwen/Qwen1.5-MoE-A2.7B", "model.safetensors.index.json", "main")
     assert url == "https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B/resolve/main/model.safetensors.index.json"
+
+
+def test_hf_token_is_sent_only_when_set(monkeypatch):
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    assert fetch_hf_tensors._auth_headers() == {}
+    monkeypatch.setenv("HF_TOKEN", "hf_test")
+    assert fetch_hf_tensors._auth_headers() == {"Authorization": "Bearer hf_test"}

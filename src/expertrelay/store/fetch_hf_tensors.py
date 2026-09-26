@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import struct
 import time
 import urllib.parse
@@ -38,8 +39,17 @@ _ITEMSIZE = {"BF16": 2, "F16": 2, "F32": 4, "I32": 4, "I64": 8}
 _NUMPY_DTYPES = {"F32": np.float32, "F16": np.float16, "I64": np.int64, "I32": np.int32}
 
 
+def _auth_headers() -> dict[str, str]:
+    """Send HF_TOKEN if the environment has one. Anonymous requests work but
+    are rate-limited by the Hub. Never logged or stored anywhere."""
+    token = os.environ.get("HF_TOKEN")
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
 def _http_get(url: str, timeout: int = 60) -> bytes:
-    with urllib.request.urlopen(urllib.request.Request(url), timeout=timeout) as resp:
+    with urllib.request.urlopen(
+        urllib.request.Request(url, headers=_auth_headers()), timeout=timeout
+    ) as resp:
         return resp.read()
 
 
@@ -51,7 +61,7 @@ def _http_get_range(url: str, start: int, end_inclusive: int, timeout: int = 120
     must not be silently treated as the requested bytes.
     """
     expected = end_inclusive - start + 1
-    req = urllib.request.Request(url, headers={"Range": f"bytes={start}-{end_inclusive}"})
+    req = urllib.request.Request(url, headers={"Range": f"bytes={start}-{end_inclusive}", **_auth_headers()})
     last_err: Exception | None = None
     for attempt in range(retries):
         try:

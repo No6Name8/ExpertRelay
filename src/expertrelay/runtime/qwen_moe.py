@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from expertrelay.runtime.backends import Backend, NumpyBackend
+from expertrelay.runtime.expert_trace import PHASE_DECODE, PHASE_PREFILL, ExpertTraceWriter
 from expertrelay.runtime.weights import EMBEDDING, ExpertSource, Int8Matrix, ResidentWeights
 
 
@@ -213,16 +214,34 @@ class QwenMoe:
         out = self.backend.attention(q, keys, values, allowed).reshape(n, c.hidden_size)
         return self._linear(p + "o_proj.weight", out)
 
-    def _moe(self, layer: int, h: np.ndarray, timings: StepTimings, trace: ForwardTrace | None) -> np.ndarray:
+    def _moe(
+        self,
+        layer: int,
+        h: np.ndarray,
+        timings: StepTimings,
+        trace: ForwardTrace | None,
+        expert_trace: ExpertTraceWriter | None,
+    ) -> np.ndarray:
         c, p = self.c, f"model.layers.{layer}.mlp."
         n = h.shape[0]
-        probs = _softmax(self._linear(p + "gate.weight", h))
+        router_logits = self._linear(p + "gate.weight", h)
+        probs = _softmax(router_logits)
         selected = _top_k_desc(probs, c.top_k)
         weights = np.take_along_axis(probs, selected, axis=-1)
         if c.norm_topk_prob:
             weights = weights / weights.sum(axis=-1, keepdims=True)
         if trace is not None:
             trace.selected_experts.append(selected.copy())
+        if expert_trace is not None:
+            # Fate-style prediction (see runtime.expert_trace for the citation):
+            # the NEXT layer's router applied to THIS layer's gate input. Only
+            # the trace uses it; it doesn't feed back into the forward pass.
+            fate = (
+                self._linear(f"model.layers.{layer + 1}.mlp.gate.weight", h)
+                if layer + 1 < c.num_layers
+                else None
+            )
+            expert_trace.layer(layer, router_logits, selected, weights, fate)
 
         routed = np.zeros((n, c.hidden_size), dtype=np.float32)
         for expert in np.unique(selected):
@@ -255,6 +274,7 @@ class QwenMoe:
         *,
         all_logits: bool = False,
         trace: ForwardTrace | None = None,
+        expert_trace: ExpertTraceWriter | None = None,
     ) -> tuple[np.ndarray, StepTimings]:
         """Run `token_ids` (appended after what's already in `cache`).
         Returns logits for the last position (or all positions) and timings."""
@@ -270,16 +290,20 @@ class QwenMoe:
         )
 
         positions = cache.length + np.arange(len(token_ids))
+        if expert_trace is not None:
+            expert_trace.begin(positions, token_ids, PHASE_PREFILL if cache.length == 0 else PHASE_DECODE)
         cos, sin = rope_tables(positions, c.head_dim, c.rope_theta)
         for layer in range(c.num_layers):
             p = f"model.layers.{layer}."
             h = rms_norm(x, self._w(p + "input_layernorm.weight"), c.rms_norm_eps)
             x = x + self._attention(layer, h, cos, sin, cache)
             h = rms_norm(x, self._w(p + "post_attention_layernorm.weight"), c.rms_norm_eps)
-            x = x + self._moe(layer, h, timings, trace)
+            x = x + self._moe(layer, h, timings, trace, expert_trace)
             if trace is not None:
                 trace.hidden_after_layer.append(x.copy())
         cache.length += len(token_ids)
+        if expert_trace is not None:
+            expert_trace.end()
 
         final = rms_norm(x if all_logits else x[-1:], self._w("model.norm.weight"), c.rms_norm_eps)
         if trace is not None:

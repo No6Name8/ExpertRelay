@@ -31,6 +31,7 @@ from expertrelay.manager.backend_selection import BackendChoice, select_backend
 from expertrelay.manager.profile import collect_machine_profile, device_read_bytes, measure_memory
 from expertrelay.memory_budget import enforce_ram_budget
 from expertrelay.runtime.backends import BACKEND_NAMES, make_backend
+from expertrelay.runtime.expert_trace import ExpertTraceWriter
 from expertrelay.runtime.int8_linear import BLOCK_ROWS_PREFILL
 from expertrelay.runtime.qwen_moe import KVCache, ModelConfig, QwenMoe
 from expertrelay.runtime.weights import (
@@ -159,15 +160,21 @@ class StepRecord:
 
 
 def generate(
-    model: QwenMoe, prompt_ids: list[int], max_new_tokens: int, max_seq: int
+    model: QwenMoe,
+    prompt_ids: list[int],
+    max_new_tokens: int,
+    max_seq: int,
+    expert_trace: ExpertTraceWriter | None = None,
 ) -> tuple[list[int], list[StepRecord]]:
+    """Greedy, fixed length. With `expert_trace`, every forward call's router
+    decisions are recorded (runtime.expert_trace); outputs are unchanged."""
     cache = KVCache(model.c, max_seq)
     steps: list[StepRecord] = []
     generated: list[int] = []
     feed = prompt_ids
     for i in range(max_new_tokens):
         dev0 = device_read_bytes()
-        logits, t = model.forward(np.asarray(feed), cache)
+        logits, t = model.forward(np.asarray(feed), cache, expert_trace=expert_trace)
         steps.append(
             StepRecord(
                 kind="prefill" if i == 0 else "decode",
