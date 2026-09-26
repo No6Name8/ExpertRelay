@@ -25,6 +25,8 @@ dev = [
     "transformers==5.17.0",
     "huggingface_hub",
     "safetensors",
+    # charts for bench/phase3_analysis.py
+    "matplotlib",
 ]
 
 [project.scripts]
