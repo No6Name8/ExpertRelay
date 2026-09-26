@@ -1,5 +1,7 @@
 # ExpertRelay
 
+Created by Abdullah Ali Alanazi.
+
 Virtual memory for AI: a Manager that understands every device in a
 cluster, keeps hot experts in RAM and cold experts on SSD or a networked
 peer, predicts which expert a Mixture-of-Experts (MoE) model will need
