@@ -1,0 +1,478 @@
+[
+  {
+    "label": "read diagnosis: expert records under different read conditions",
+    "timestamp": "2026-09-28T18:45:52Z",
+    "git_commit": "87e54259fb9080b8a2787a6882505ed03bd7e15a",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 1333796864
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 48069279744
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "store": "qwen1.5-moe-a2.7b-int8"
+    },
+    "config": {
+      "files": [
+        "experts.bin",
+        "experts.bin.new"
+      ],
+      "reads_per_test": 240,
+      "rounds": 2,
+      "tests": [
+        "back_to_back",
+        "gapped",
+        "qd2",
+        "qd4"
+      ],
+      "gap": {
+        "every_reads": 4,
+        "seconds": 0.04
+      },
+      "record_bytes": 8671232,
+      "label": "fresh copy written and verified minutes before; nothing else using the disk"
+    },
+    "files": {
+      "experts.bin": {
+        "extents": 227,
+        "records_in_one_piece": 1258,
+        "records_split": 182,
+        "max_pieces_per_record": 18,
+        "mean_pieces_per_record": 1.1569444444444446
+      },
+      "experts.bin.new": {
+        "extents": 1,
+        "records_in_one_piece": 1440,
+        "records_split": 0,
+        "max_pieces_per_record": 1,
+        "mean_pieces_per_record": 1.0
+      }
+    },
+    "results": [
+      {
+        "round": 0,
+        "file": "experts.bin",
+        "test": "back_to_back",
+        "queue_depth": 1,
+        "reads": 240,
+        "median_ms": 4.288500058464706,
+        "mean_ms": 4.313291661674157,
+        "p90_ms": 4.633300006389618,
+        "mb_per_s": 2006.7347200611366,
+        "wall_seconds": 1.0370557000860572,
+        "device_bytes_read": 2081177600,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 213,
+            "median_ms": 4.2773999739438295,
+            "mean_ms": 4.288606569739365,
+            "p90_ms": 4.590200027450919
+          },
+          "2+": {
+            "reads": 27,
+            "median_ms": 4.517399938777089,
+            "mean_ms": 4.508029609159739,
+            "p90_ms": 4.9287001602351665
+          }
+        }
+      },
+      {
+        "round": 0,
+        "file": "experts.bin",
+        "test": "gapped",
+        "queue_depth": 1,
+        "reads": 240,
+        "median_ms": 4.805749980732799,
+        "mean_ms": 6.105182497412898,
+        "p90_ms": 10.013400111347437,
+        "mb_per_s": 1420.3067645683775,
+        "wall_seconds": 4.092554399976507,
+        "device_bytes_read": 2084118528,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 213,
+            "median_ms": 4.772300133481622,
+            "mean_ms": 6.0934497605344635,
+            "p90_ms": 10.013400111347437
+          },
+          "2+": {
+            "reads": 27,
+            "median_ms": 5.299599841237068,
+            "mean_ms": 6.197740755009431,
+            "p90_ms": 9.02490015141666
+          }
+        }
+      },
+      {
+        "round": 0,
+        "file": "experts.bin",
+        "test": "qd2",
+        "queue_depth": 2,
+        "reads": 240,
+        "median_ms": 6.746749859303236,
+        "mean_ms": 6.792240006810364,
+        "p90_ms": 7.396500091999769,
+        "mb_per_s": 2537.8686368851895,
+        "wall_seconds": 0.8200171000789851,
+        "device_bytes_read": 2081161216,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 213,
+            "median_ms": 6.722400197759271,
+            "mean_ms": 6.738358692095523,
+            "p90_ms": 7.286400068551302
+          },
+          "2+": {
+            "reads": 27,
+            "median_ms": 7.03950016759336,
+            "mean_ms": 7.217303711783003,
+            "p90_ms": 8.06320016272366
+          }
+        }
+      },
+      {
+        "round": 0,
+        "file": "experts.bin",
+        "test": "qd4",
+        "queue_depth": 4,
+        "reads": 240,
+        "median_ms": 13.432850129902363,
+        "mean_ms": 13.678275417381277,
+        "p90_ms": 14.404000015929341,
+        "mb_per_s": 2512.1511786505503,
+        "wall_seconds": 0.8284118000883609,
+        "device_bytes_read": 2081095680,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 213,
+            "median_ms": 13.400200055912137,
+            "mean_ms": 13.640823473436802,
+            "p90_ms": 14.219499891623855
+          },
+          "2+": {
+            "reads": 27,
+            "median_ms": 13.993399916216731,
+            "mean_ms": 13.973729641832135,
+            "p90_ms": 14.755199896171689
+          }
+        }
+      },
+      {
+        "round": 0,
+        "file": "experts.bin.new",
+        "test": "back_to_back",
+        "queue_depth": 1,
+        "reads": 240,
+        "median_ms": 4.168750019744039,
+        "mean_ms": 4.20971916076572,
+        "p90_ms": 4.468000028282404,
+        "mb_per_s": 2051.015082292826,
+        "wall_seconds": 1.0146662001498044,
+        "device_bytes_read": 2081222656,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 240,
+            "median_ms": 4.168750019744039,
+            "mean_ms": 4.20971916076572,
+            "p90_ms": 4.468000028282404
+          }
+        }
+      },
+      {
+        "round": 0,
+        "file": "experts.bin.new",
+        "test": "gapped",
+        "queue_depth": 1,
+        "reads": 240,
+        "median_ms": 4.835800034925342,
+        "mean_ms": 6.564157075869541,
+        "p90_ms": 13.077899813652039,
+        "mb_per_s": 1320.997029744499,
+        "wall_seconds": 4.067898999899626,
+        "device_bytes_read": 2082299904,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 240,
+            "median_ms": 4.835800034925342,
+            "mean_ms": 6.564157075869541,
+            "p90_ms": 13.077899813652039
+          }
+        }
+      },
+      {
+        "round": 0,
+        "file": "experts.bin.new",
+        "test": "qd2",
+        "queue_depth": 2,
+        "reads": 240,
+        "median_ms": 6.731199915520847,
+        "mean_ms": 6.755655834179682,
+        "p90_ms": 7.15319998562336,
+        "mb_per_s": 2553.543328879297,
+        "wall_seconds": 0.8149835001677275,
+        "device_bytes_read": 2081112064,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 240,
+            "median_ms": 6.731199915520847,
+            "mean_ms": 6.755655834179682,
+            "p90_ms": 7.15319998562336
+          }
+        }
+      },
+      {
+        "round": 0,
+        "file": "experts.bin.new",
+        "test": "qd4",
+        "queue_depth": 4,
+        "reads": 240,
+        "median_ms": 13.440699898637831,
+        "mean_ms": 13.515647907236902,
+        "p90_ms": 14.084599912166595,
+        "mb_per_s": 2538.7082505959947,
+        "wall_seconds": 0.8197459001094103,
+        "device_bytes_read": 2081112064,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 240,
+            "median_ms": 13.440699898637831,
+            "mean_ms": 13.515647907236902,
+            "p90_ms": 14.084599912166595
+          }
+        }
+      },
+      {
+        "round": 1,
+        "file": "experts.bin.new",
+        "test": "back_to_back",
+        "queue_depth": 1,
+        "reads": 240,
+        "median_ms": 4.191600019112229,
+        "mean_ms": 4.191622085636482,
+        "p90_ms": 4.48759994469583,
+        "mb_per_s": 2063.6195057509276,
+        "wall_seconds": 1.0084686998743564,
+        "device_bytes_read": 2081796096,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 240,
+            "median_ms": 4.191600019112229,
+            "mean_ms": 4.191622085636482,
+            "p90_ms": 4.48759994469583
+          }
+        }
+      },
+      {
+        "round": 1,
+        "file": "experts.bin.new",
+        "test": "gapped",
+        "queue_depth": 1,
+        "reads": 240,
+        "median_ms": 4.94420004542917,
+        "mean_ms": 6.585587920077766,
+        "p90_ms": 12.634600047022104,
+        "mb_per_s": 1316.6982363964257,
+        "wall_seconds": 4.185417199973017,
+        "device_bytes_read": 2082795520,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 240,
+            "median_ms": 4.94420004542917,
+            "mean_ms": 6.585587920077766,
+            "p90_ms": 12.634600047022104
+          }
+        }
+      },
+      {
+        "round": 1,
+        "file": "experts.bin.new",
+        "test": "qd2",
+        "queue_depth": 2,
+        "reads": 240,
+        "median_ms": 6.814999971538782,
+        "mean_ms": 6.779877500957809,
+        "p90_ms": 7.197699975222349,
+        "mb_per_s": 2542.7198596389085,
+        "wall_seconds": 0.8184525999240577,
+        "device_bytes_read": 2081095680,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 240,
+            "median_ms": 6.814999971538782,
+            "mean_ms": 6.779877500957809,
+            "p90_ms": 7.197699975222349
+          }
+        }
+      },
+      {
+        "round": 1,
+        "file": "experts.bin.new",
+        "test": "qd4",
+        "queue_depth": 4,
+        "reads": 240,
+        "median_ms": 13.57279997318983,
+        "mean_ms": 13.587760421796702,
+        "p90_ms": 14.084399910643697,
+        "mb_per_s": 2525.3572923601064,
+        "wall_seconds": 0.8240797000471503,
+        "device_bytes_read": 2081202176,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 240,
+            "median_ms": 13.57279997318983,
+            "mean_ms": 13.587760421796702,
+            "p90_ms": 14.084399910643697
+          }
+        }
+      },
+      {
+        "round": 1,
+        "file": "experts.bin",
+        "test": "back_to_back",
+        "queue_depth": 1,
+        "reads": 240,
+        "median_ms": 4.20725008007139,
+        "mean_ms": 4.328851260167236,
+        "p90_ms": 4.607099806889892,
+        "mb_per_s": 1997.1092475482906,
+        "wall_seconds": 1.0420540000777692,
+        "device_bytes_read": 2081095680,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 216,
+            "median_ms": 4.201899981126189,
+            "mean_ms": 4.318428252763288,
+            "p90_ms": 4.581499844789505
+          },
+          "2+": {
+            "reads": 24,
+            "median_ms": 4.39514999743551,
+            "mean_ms": 4.422658326802775,
+            "p90_ms": 4.819900030270219
+          }
+        }
+      },
+      {
+        "round": 1,
+        "file": "experts.bin",
+        "test": "gapped",
+        "queue_depth": 1,
+        "reads": 240,
+        "median_ms": 4.928900045342743,
+        "mean_ms": 6.2274325008426485,
+        "p90_ms": 11.068599997088313,
+        "mb_per_s": 1392.424887596401,
+        "wall_seconds": 4.057252499973401,
+        "device_bytes_read": 2082091008,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 216,
+            "median_ms": 4.928900045342743,
+            "mean_ms": 6.275537041128026,
+            "p90_ms": 11.068599997088313
+          },
+          "2+": {
+            "reads": 24,
+            "median_ms": 4.921149928122759,
+            "mean_ms": 5.794491638274242,
+            "p90_ms": 7.690900005400181
+          }
+        }
+      },
+      {
+        "round": 1,
+        "file": "experts.bin",
+        "test": "qd2",
+        "queue_depth": 2,
+        "reads": 240,
+        "median_ms": 6.815450033172965,
+        "mean_ms": 6.9754970832339795,
+        "p90_ms": 7.340000011026859,
+        "mb_per_s": 2469.3463086280467,
+        "wall_seconds": 0.8427718998864293,
+        "device_bytes_read": 2081095680,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 216,
+            "median_ms": 6.785950041376054,
+            "mean_ms": 6.943609723950633,
+            "p90_ms": 7.26160011254251
+          },
+          "2+": {
+            "reads": 24,
+            "median_ms": 7.1858000010252,
+            "mean_ms": 7.262483316784103,
+            "p90_ms": 7.8270998783409595
+          }
+        }
+      },
+      {
+        "round": 1,
+        "file": "experts.bin",
+        "test": "qd4",
+        "queue_depth": 4,
+        "reads": 240,
+        "median_ms": 13.685700134374201,
+        "mean_ms": 13.83364834570481,
+        "p90_ms": 14.366599963977933,
+        "mb_per_s": 2482.659083787012,
+        "wall_seconds": 0.8382526999339461,
+        "device_bytes_read": 2081095680,
+        "cache_bypass_verified": true,
+        "by_pieces": {
+          "1": {
+            "reads": 216,
+            "median_ms": 13.616749900393188,
+            "mean_ms": 13.727205568338158,
+            "p90_ms": 14.312100131064653
+          },
+          "2+": {
+            "reads": 24,
+            "median_ms": 13.766400166787207,
+            "mean_ms": 14.791633342004692,
+            "p90_ms": 14.455399941653013
+          }
+        }
+      }
+    ],
+    "peak_rss_mb": 74.530816
+  }
+]

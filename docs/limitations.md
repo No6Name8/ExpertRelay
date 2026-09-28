@@ -335,30 +335,32 @@ accounts for it.
 - **No expert is kept between tokens** with `--source unbuffered`: an
   expert picked by two consecutive tokens is read from disk twice. The
   cached source keeps them.
-- **A read takes ~4.9 ms in the runtime vs 2.08 ms in the disk benchmark:
-  cause not yet measured.** The timed code is the same in both: one
-  unbuffered 8.67 MB `ReadFile` at queue depth 1 into a reused
-  page-aligned buffer, with no copy or parsing inside the timed region.
-  What differs is the conditions, and reading the code and the file's
-  layout can only rank the suspects:
-  1. The benchmark reads a 1 GiB file it wrote seconds earlier, probably
-     still in the SSD's fast write cache (SLC); `experts.bin` (12.5 GB)
-     was written days earlier and spans far more of the drive.
-  2. The runtime reads in bursts of 4 with ~40 ms of compute between
-     them; the benchmark reads back to back, so the drive and PCIe link
-     never idle into a power-saving state.
-  3. Phase 2 ran while the bf16 download was writing to the same SSD.
-  4. `experts.bin` is in 227 extents (`fsutil file queryextents`): 182 of
-     1,440 records cross an extent boundary (mean 1.16 I/Os per read).
-     Real, but too small to explain 2.4x.
-  Tomorrow's check: time `read_into` on real records back to back, the
-  same with 40 ms gaps between bursts of 4, the profile's fresh file with
-  the same pattern, and single- vs multi-extent records, with nothing
-  else using the disk. Likely fixes, depending on the answer: rewrite
-  `experts.bin` as one fresh contiguous file; measure and use queue depth
-  2-4 (`io_threads`), which NVMe drives usually serve faster than queue
-  depth 1; and let the profile measure existing store records, so
-  projections use the right read time.
+- **The disk benchmark overstates what expert reads get.** The machine
+  profile's 2.08 ms per 8.65 MB read comes from a 1 GiB file it writes
+  seconds before reading; it still measures 4.0-4.2 GB/s (profile rerun,
+  2026-09-28). Real store records, read with the same call, take ~4.2 ms
+  back to back (2.0 GB/s) from `experts.bin`, and the same from a fresh
+  contiguous copy made that day (`bench/read_diagnosis.py`,
+  `benchmarks/results/read_diagnosis.json`). So neither fragmentation nor
+  file age explains the gap. The most likely cause: the small test file
+  sits in the SSD's fast write cache, while 12.5 GB of experts sit in its
+  slower main flash (the 12.5 GB copy wrote at only 95 MB/s, which is what
+  such a drive does once that cache is full). The flash type isn't in the
+  profile, so this is an inference. What the diagnosis measured directly:
+  - **Pauses cost the most:** bursts of 4 reads with 40 ms gaps, like the
+    runtime's pattern, average 6.1-6.3 ms per read (median 4.8-4.9, p90
+    10-13 ms) against 4.3 ms back to back. Phase 2's 4.9 ms per read sits
+    between the two.
+  - **Two reads in flight:** 2.5 GB/s total instead of 2.0 (+25%, both
+    rounds, both files); four in flight gives no more.
+  - **Records split across extents:** about 5% slower (+0.2-0.3 ms).
+    `experts.bin` has 227 extents; 182 of 1,440 records are split.
+  - **Fresh contiguous copy:** no clear gain (1-3%), so it wasn't swapped
+    in. It's kept as `experts.bin.new`.
+  Consequences: projections should use store-read times, not the
+  profile's fresh-file number; the runtime uses two I/O threads
+  (`io_threads: 2`); and keeping reads flowing (prefetching) avoids the
+  pause penalty.
 - **Python-level loop over experts and layers** around BLAS calls. Fine for
   measuring where time goes; it has per-call overhead a compiled runtime
   wouldn't.
