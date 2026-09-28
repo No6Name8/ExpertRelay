@@ -84,6 +84,8 @@ if sys.platform == "win32":
         wintypes.DWORD,
     ]
     _kernel32.SetFilePointerEx.restype = wintypes.BOOL
+    _kernel32.SetEndOfFile.argtypes = [wintypes.HANDLE]
+    _kernel32.SetEndOfFile.restype = wintypes.BOOL
     _kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
     _kernel32.CloseHandle.restype = wintypes.BOOL
 
@@ -145,6 +147,21 @@ def read_at(handle: int, address: int, offset: int, nbytes: int) -> None:
         _raise_last_win_error("ReadFile")
     if got.value != nbytes:
         raise OSError(f"short read at offset {offset}: {got.value} of {nbytes} bytes")
+
+
+def set_size_and_rewind(handle: int, nbytes: int) -> None:
+    """Give a new file its final size up front, then go back to the start.
+    NTFS allocates the whole size at once, so the file is as contiguous as
+    the volume's free space allows, instead of growing piece by piece.
+    Sequential writes from offset 0 then never trigger zero-filling."""
+    if not is_aligned(nbytes):
+        raise ValueError(f"unaligned file size {nbytes}")
+    if not _kernel32.SetFilePointerEx(handle, nbytes, None, _FILE_BEGIN):
+        _raise_last_win_error("SetFilePointerEx")
+    if not _kernel32.SetEndOfFile(handle):
+        _raise_last_win_error("SetEndOfFile")
+    if not _kernel32.SetFilePointerEx(handle, 0, None, _FILE_BEGIN):
+        _raise_last_win_error("SetFilePointerEx")
 
 
 def write_sequential(handle: int, address: int, nbytes: int) -> None:

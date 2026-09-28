@@ -63,6 +63,7 @@ def run_one(baseline: dict, config_path: Path, timeout_s: float) -> dict:
             baseline["source"],
             "--json-out",
             str(out_json),
+            *baseline.get("args", []),
         ]
         if not baseline["budget"]:
             cmd.append("--no-budget")
