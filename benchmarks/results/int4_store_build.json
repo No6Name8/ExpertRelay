@@ -1,0 +1,176 @@
+[
+  {
+    "label": "int4 expert store build (group size 128)",
+    "timestamp": "2026-09-29T19:58:38Z",
+    "git_commit": "59dd07897eba1abb6331f9e734cb0cb299440968",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 1002020864
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 55057420288
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "source_repo": "Qwen/Qwen1.5-MoE-A2.7B",
+      "revision": "1a758c50ecb6350748b9ce0a99d2352fd9fc11c9",
+      "store": "qwen1.5-moe-a2.7b-int4g128"
+    },
+    "config": {
+      "group_size": 128,
+      "bf16_checkpoint": "models/hf/Qwen--Qwen1.5-MoE-A2.7B@1a758c50ecb6350748b9ce0a99d2352fd9fc11c9",
+      "resident_from": "qwen1.5-moe-a2.7b-int8"
+    },
+    "summary": {
+      "store": "qwen1.5-moe-a2.7b-int4g128",
+      "record_size": 4460544,
+      "weights_bytes": 4325376,
+      "scales_bytes": 135168,
+      "experts_bin_bytes": 6423183360,
+      "records_verified": 1440,
+      "bad_records": [],
+      "build_seconds": 713.0889251999979,
+      "verify_seconds": 9.751396200001182,
+      "shared_files": {
+        "resident.bin": "hardlink",
+        "resident_index.json": "hardlink",
+        "tokenizer.json": "hardlink"
+      },
+      "quant_error": {
+        "experts": 1440,
+        "rel_fro_error_mean": 0.11791302396559349,
+        "rel_fro_error_median": 0.11777571940820916,
+        "rel_fro_error_max": 0.12351588509689473,
+        "worst_expert": [
+          23,
+          28
+        ],
+        "max_abs_error_over_scale": 0.5
+      },
+      "int8_for_comparison": {
+        "record_size": 8671232,
+        "experts_bin_bytes": 12486574080,
+        "quant_error": {
+          "experts": 1440,
+          "rel_fro_error_mean": 0.008299631388901971,
+          "rel_fro_error_median": 0.008272981766134335,
+          "rel_fro_error_max": 0.010285672020124191,
+          "worst_expert": [
+            3,
+            33
+          ],
+          "max_abs_error_over_scale": 0.500001900365605
+        }
+      }
+    },
+    "peak_rss_mb": 3972.68992
+  },
+  {
+    "label": "int4 expert store build (group size 64)",
+    "timestamp": "2026-09-29T20:10:46Z",
+    "git_commit": "b977146616f0183a39debb870d79a9c3f07b58bf",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 4179701760
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 48625774592
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "source_repo": "Qwen/Qwen1.5-MoE-A2.7B",
+      "revision": "1a758c50ecb6350748b9ce0a99d2352fd9fc11c9",
+      "store": "qwen1.5-moe-a2.7b-int4g64"
+    },
+    "config": {
+      "group_size": 64,
+      "bf16_checkpoint": "models/hf/Qwen--Qwen1.5-MoE-A2.7B@1a758c50ecb6350748b9ce0a99d2352fd9fc11c9",
+      "resident_from": "qwen1.5-moe-a2.7b-int8"
+    },
+    "summary": {
+      "store": "qwen1.5-moe-a2.7b-int4g64",
+      "record_size": 4595712,
+      "weights_bytes": 4325376,
+      "scales_bytes": 270336,
+      "experts_bin_bytes": 6617825280,
+      "records_verified": 1440,
+      "bad_records": [],
+      "build_seconds": 713.7580658999941,
+      "verify_seconds": 10.018256400006067,
+      "shared_files": {
+        "resident.bin": "hardlink",
+        "resident_index.json": "hardlink",
+        "tokenizer.json": "hardlink"
+      },
+      "quant_error": {
+        "experts": 1440,
+        "rel_fro_error_mean": 0.10807156203981225,
+        "rel_fro_error_median": 0.1079843780428423,
+        "rel_fro_error_max": 0.11170329879311608,
+        "worst_expert": [
+          23,
+          28
+        ],
+        "max_abs_error_over_scale": 0.5
+      },
+      "int8_for_comparison": {
+        "record_size": 8671232,
+        "experts_bin_bytes": 12486574080,
+        "quant_error": {
+          "experts": 1440,
+          "rel_fro_error_mean": 0.008299631388901971,
+          "rel_fro_error_median": 0.008272981766134335,
+          "rel_fro_error_max": 0.010285672020124191,
+          "worst_expert": [
+            3,
+            33
+          ],
+          "max_abs_error_over_scale": 0.500001900365605
+        }
+      }
+    },
+    "peak_rss_mb": 4485.185536
+  }
+]
