@@ -1,0 +1,166 @@
+[
+  {
+    "label": "compute profile per decode token (blocked int8 kernel)",
+    "timestamp": "2026-09-29T16:59:33Z",
+    "git_commit": "e492680b17f94c47e44005547204e1dda4a4ec7d",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 2826240000
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 55260758016
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "store": "models/qwen1.5-moe-a2.7b-int8"
+    },
+    "config": {
+      "kernel": "blocked",
+      "prompts": [
+        "en",
+        "ar",
+        "code",
+        "math"
+      ],
+      "max_new_tokens": 32
+    },
+    "profile": {
+      "compute_s_per_token": 0.9923866701617132,
+      "by_call_s": {
+        "attention_op": 0.002591721773598927,
+        "attn_proj:convert": 0.13206700725814083,
+        "attn_proj:matmul": 0.02736982256963881,
+        "attn_proj:scale": 0.0004895911275642932,
+        "embedding": 0.00047585725816691503,
+        "lm_head:convert": 0.1013418911340024,
+        "lm_head:matmul": 0.020783541131799387,
+        "lm_head:scale": 5.9263709625801925e-05,
+        "routed_experts:convert": 0.2568628701552781,
+        "routed_experts:matmul": 0.06085130161755519,
+        "routed_experts:scale": 0.0013436048357400596,
+        "router:f32": 0.000554294354397796,
+        "shared_expert:convert": 0.2621155717669382,
+        "shared_expert:f32": 0.0002563104835644481,
+        "shared_expert:matmul": 0.09127468386530734,
+        "shared_expert:scale": 0.0005013112899647358
+      },
+      "by_group_s": {
+        "attention_op": 0.002591721773598927,
+        "attn_proj": 0.15992642095534393,
+        "embedding": 0.00047585725816691503,
+        "lm_head": 0.12218469597542758,
+        "routed_experts": 0.3190577766085734,
+        "router": 0.000554294354397796,
+        "shared_expert": 0.35414787740577475
+      },
+      "by_kind_s": {
+        "convert": 0.7523873403143595,
+        "matmul": 0.20027934918430074,
+        "scale": 0.0023937709628948905,
+        "f32": 0.0008106048379622441
+      },
+      "other_s": 0.03344802583042994,
+      "steps": 124,
+      "expert_read_s_per_token": 0.46946427741879176
+    },
+    "peak_rss_mb": 1689.74336
+  },
+  {
+    "label": "compute profile per decode token (fused int8 kernel)",
+    "timestamp": "2026-09-29T17:03:44Z",
+    "git_commit": "e492680b17f94c47e44005547204e1dda4a4ec7d",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 3071807488
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 55262322688
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "store": "models/qwen1.5-moe-a2.7b-int8"
+    },
+    "config": {
+      "kernel": "fused",
+      "prompts": [
+        "en",
+        "ar",
+        "code",
+        "math"
+      ],
+      "max_new_tokens": 32
+    },
+    "profile": {
+      "compute_s_per_token": 0.09031773467763889,
+      "by_call_s": {
+        "attention_op": 0.003746473386209184,
+        "attn_proj:fused": 0.011140097583349063,
+        "embedding": 0.000763372580466591,
+        "lm_head:fused": 0.006610133870855216,
+        "routed_experts:fused": 0.01813177903354259,
+        "router:f32": 0.0009584540324970974,
+        "shared_expert:f32": 0.0006351193561356688,
+        "shared_expert:fused": 0.021632858064608188
+      },
+      "by_group_s": {
+        "attention_op": 0.003746473386209184,
+        "attn_proj": 0.011140097583349063,
+        "embedding": 0.000763372580466591,
+        "lm_head": 0.006610133870855216,
+        "routed_experts": 0.01813177903354259,
+        "router": 0.0009584540324970974,
+        "shared_expert": 0.022267977420743858
+      },
+      "by_kind_s": {
+        "fused": 0.05751486855235506,
+        "f32": 0.0015935733886327662
+      },
+      "other_s": 0.026699446769975294,
+      "steps": 124,
+      "expert_read_s_per_token": 0.4001034145158854
+    },
+    "peak_rss_mb": 1772.081152
+  }
+]
