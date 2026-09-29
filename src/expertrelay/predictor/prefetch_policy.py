@@ -9,11 +9,12 @@ this module only turns them into a list of experts, in plain numpy.
 The guess is the top-k experts by router probability. Guesses whose
 calibrated probability of being picked is below `min_probability` are
 dropped: a read that is almost never used still occupies the disk and a
-cache slot. The calibration is an isotonic map fitted on held-out traces
-in Phase 3.5, one per guess rank where available (RankedIsotonicCalibrator) (predictor.offline.IsotonicCalibrator, B. Zadrozny, C. Elkan,
-KDD 2002), saved by bench/fit_prefetch_calibration.py. It maps the raw
-router softmax probability of one expert to P(that expert is among the
-top-k picked).
+cache slot. The calibration maps the raw router softmax probability of
+one expert to P(that expert is among the top-k picked): isotonic
+regression (B. Zadrozny, C. Elkan, KDD 2002) fitted on held-out traces by
+bench/fit_prefetch_calibration.py, one map per guess rank
+(predictor.offline.RankedIsotonicCalibrator) when the record has it, else
+a single map (IsotonicCalibrator).
 
 With several tokens in one call (prefill), each expert's score is its
 highest probability over the tokens. The calibration was fitted per token
