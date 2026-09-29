@@ -48,7 +48,7 @@ import numpy as np
 from expertrelay.predictor.prefetch_policy import PrefetchPolicy
 from expertrelay.runtime.backends import Backend, NumpyBackend
 from expertrelay.runtime.expert_trace import PHASE_DECODE, PHASE_PREFILL, ExpertTraceWriter
-from expertrelay.runtime.weights import EMBEDDING, ExpertSource, Int8Matrix, ResidentWeights
+from expertrelay.runtime.weights import EMBEDDING, ExpertSource, Int4Matrix, Int8Matrix, ResidentWeights
 
 
 @dataclass(frozen=True)
@@ -258,7 +258,9 @@ class QwenMoe:
             return self.backend.int8_linear(x, w.q, w.scales, b)
         return self.backend.linear(x, w, b)
 
-    def _expert_linear(self, w: Int8Matrix, x: np.ndarray) -> np.ndarray:
+    def _expert_linear(self, w: Int8Matrix | Int4Matrix, x: np.ndarray) -> np.ndarray:
+        if isinstance(w, Int4Matrix):
+            return self.backend.int4_linear(x, w.packed, w.scales, w.group_size)
         return self.backend.int8_linear(x, w.q, w.scales)
 
     def _attention(

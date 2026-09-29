@@ -6,6 +6,7 @@ KV-cache bookkeeping) is cheap elementwise numpy in runtime.qwen_moe and
 is shared by every backend.
 
   int8_linear  x @ (Q * scale)^T (+ bias), int8 weights, per-row scales
+  int4_linear  the same for packed int4 weights with group-wise scales (store.int4)
   linear       x @ W^T (+ bias), f32 weights (router, shared_expert_gate)
   attention    causal softmax attention over the KV cache
 
@@ -28,6 +29,7 @@ from typing import Protocol
 
 import numpy as np
 
+from expertrelay.runtime.int4_linear import int4_linear
 from expertrelay.runtime.int8_linear import int8_linear
 
 # Imported lazily by name: loading MindSpore costs hundreds of MB of RAM,
@@ -46,6 +48,10 @@ class Backend(Protocol):
         self, x: np.ndarray, q: np.ndarray, scales: np.ndarray, bias: np.ndarray | None = None
     ) -> np.ndarray:
         """x [n, in] f32, q [out, in] int8, scales [out] f32 -> [n, out] f32."""
+        ...
+
+    def int4_linear(self, x: np.ndarray, packed: np.ndarray, scales: np.ndarray, group: int) -> np.ndarray:
+        """x [n, in] f32, packed [out, in/2] uint8 (store.int4), scales [out, in/group] f16 -> [n, out] f32."""
         ...
 
     def linear(self, x: np.ndarray, w: np.ndarray, bias: np.ndarray | None = None) -> np.ndarray:
@@ -73,6 +79,9 @@ class NumpyBackend:
         self, x: np.ndarray, q: np.ndarray, scales: np.ndarray, bias: np.ndarray | None = None
     ) -> np.ndarray:
         return int8_linear(x, q, scales, bias)
+
+    def int4_linear(self, x: np.ndarray, packed: np.ndarray, scales: np.ndarray, group: int) -> np.ndarray:
+        return int4_linear(x, packed, scales, group)
 
     def linear(self, x: np.ndarray, w: np.ndarray, bias: np.ndarray | None = None) -> np.ndarray:
         y = x @ w.T

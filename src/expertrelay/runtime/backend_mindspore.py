@@ -24,6 +24,8 @@ import mindspore as ms
 import numpy as np
 from mindspore import ops
 
+from expertrelay.store.int4 import dequantize_groupwise_int4
+
 
 class MindSporeBackend:
     name = "mindspore"
@@ -40,6 +42,12 @@ class MindSporeBackend:
         if bias is not None:
             y = y + ms.Tensor(bias)
         return y.asnumpy()
+
+    def int4_linear(self, x: np.ndarray, packed: np.ndarray, scales: np.ndarray, group: int) -> np.ndarray:
+        """Unpacked and scaled in numpy (bit unpacking isn't worth a device
+        op on CPU), multiplied in MindSpore f32."""
+        w = dequantize_groupwise_int4(packed, scales, group)
+        return ops.matmul(ms.Tensor(x), ms.Tensor(w).T).asnumpy()
 
     def linear(self, x: np.ndarray, w: np.ndarray, bias: np.ndarray | None = None) -> np.ndarray:
         y = ops.matmul(ms.Tensor(x), ms.Tensor(w).T)

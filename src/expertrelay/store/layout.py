@@ -17,6 +17,10 @@ multiple of 4096 bytes. Records are back to back, so every record starts on
 a 4096-byte boundary. One unbuffered read of `record_size` bytes at
 `offset` therefore loads one complete expert, weights and scales together.
 
+An int4 store (store.int4) has the same files and rules; only the
+expert record differs (packed 4-bit weights, float16 group scales), and
+its index says so in layout["format"].
+
 Resident tensors are laid out the same way (int8 weights, then f32 scales,
 then pad), each starting on a 4096-byte boundary. Tensors kept in fp32 are
 [f32 data][pad].
@@ -32,6 +36,8 @@ from pathlib import Path
 
 import numpy as np
 
+from expertrelay.store.int4 import FORMAT as INT4_FORMAT
+from expertrelay.store.int4 import Int4RecordLayout, parse_int4_record
 from expertrelay.store.unbuffered_io import ALIGNMENT, align_up, is_aligned
 
 INDEX_FORMAT_VERSION = 1
@@ -123,9 +129,14 @@ def serialize_expert_record(
     return record
 
 
-def parse_expert_record(layout: ExpertRecordLayout, buf) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+def parse_expert_record(
+    layout: ExpertRecordLayout | Int4RecordLayout, buf
+) -> dict[str, tuple[np.ndarray, np.ndarray]]:
     """Inverse of serialize_expert_record. Returns views into `buf`: copy them
-    if `buf` is about to be reused."""
+    if `buf` is about to be reused. For an int4 layout: (packed uint8,
+    float16 group scales) per matrix instead of (int8, float32 row scales)."""
+    if isinstance(layout, Int4RecordLayout):
+        return parse_int4_record(layout, buf)
     out = {}
     for name, (rows, cols) in layout.matrices:
         q = np.frombuffer(buf, dtype=np.int8, count=rows * cols, offset=layout.weight_offset(name))
@@ -163,7 +174,9 @@ class ExpertIndexEntry:
     quant_error: dict[str, dict[str, float]]  # per matrix: rel_fro_error, max_abs_error_over_scale
 
 
-def write_expert_index(path: Path, layout: ExpertRecordLayout, entries: list[ExpertIndexEntry]) -> None:
+def write_expert_index(
+    path: Path, layout: ExpertRecordLayout | Int4RecordLayout, entries: list[ExpertIndexEntry]
+) -> None:
     doc = {
         "format_version": INDEX_FORMAT_VERSION,
         "layout": layout.to_dict(),
@@ -172,13 +185,19 @@ def write_expert_index(path: Path, layout: ExpertRecordLayout, entries: list[Exp
     Path(path).write_text(json.dumps(doc, indent=1))
 
 
-def read_expert_index(path: Path) -> tuple[ExpertRecordLayout, list[ExpertIndexEntry]]:
+def layout_from_dict(d: dict) -> ExpertRecordLayout | Int4RecordLayout:
+    return (
+        Int4RecordLayout.from_dict(d) if d.get("format") == INT4_FORMAT else ExpertRecordLayout.from_dict(d)
+    )
+
+
+def read_expert_index(path: Path) -> tuple[ExpertRecordLayout | Int4RecordLayout, list[ExpertIndexEntry]]:
     """Load and validate an expert index. Validation is strict: an unaligned
     or wrong-sized entry would make the one-read-per-expert guarantee false."""
     doc = json.loads(Path(path).read_text())
     if doc.get("format_version") != INDEX_FORMAT_VERSION:
         raise ValueError(f"unsupported expert index format_version {doc.get('format_version')}")
-    layout = ExpertRecordLayout.from_dict(doc["layout"])
+    layout = layout_from_dict(doc["layout"])
     entries = [ExpertIndexEntry(**e) for e in doc["entries"]]
     seen: set[tuple[int, int]] = set()
     for e in entries:

@@ -66,6 +66,20 @@ class Int8Matrix:
         return self.q.nbytes + self.scales.nbytes
 
 
+@dataclass(frozen=True)
+class Int4Matrix:
+    """Plain data: packed int4 weights (store.int4) and their float16 group
+    scales. Like Int8Matrix, knows nothing about compute."""
+
+    packed: np.ndarray  # uint8 [out, in / 2], two values per byte
+    scales: np.ndarray  # float16 [out, in / group_size]
+    group_size: int
+
+    @property
+    def nbytes(self) -> int:
+        return self.packed.nbytes + self.scales.nbytes
+
+
 class ResidentWeights:
     """Everything used on every token, by checkpoint tensor name."""
 
@@ -115,7 +129,7 @@ class ResidentWeights:
         return cls(tensors, ram_bytes)
 
 
-ExpertWeights = dict[str, Int8Matrix]  # "gate_proj" / "up_proj" / "down_proj"
+ExpertWeights = dict[str, "Int8Matrix | Int4Matrix"]  # "gate_proj" / "up_proj" / "down_proj"
 
 
 class ReadLog:
@@ -222,7 +236,15 @@ class ExpertSource(ABC):
 
 
 def _to_matrices(parsed: dict[str, tuple[np.ndarray, np.ndarray]]) -> ExpertWeights:
-    return {m: Int8Matrix(q, s) for m, (q, s) in parsed.items()}
+    """int8 records parse to (int8, float32 row scales), int4 records to
+    (packed uint8, float16 group scales); the dtype tells them apart."""
+    out: ExpertWeights = {}
+    for m, (q, s) in parsed.items():
+        if q.dtype == np.uint8:
+            out[m] = Int4Matrix(q, s, q.shape[1] * 2 // s.shape[1])
+        else:
+            out[m] = Int8Matrix(q, s)
+    return out
 
 
 class UnbufferedExpertSource(ExpertSource):

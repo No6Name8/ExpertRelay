@@ -44,6 +44,18 @@ def test_int8_linear_matches_float64(backend):
     np.testing.assert_allclose(backend.int8_linear(x, q, s), exact - bias, rtol=1e-5, atol=1e-5)
 
 
+@pytest.mark.parametrize("n", [1, 5])  # decode-sized and prefill-sized inputs
+def test_int4_linear_matches_float64(backend, n):
+    from expertrelay.store.int4 import dequantize_groupwise_int4, pack_int4, quantize_groupwise_int4
+
+    rng = np.random.default_rng(1)
+    q, s = quantize_groupwise_int4(rng.normal(0, 0.05, (300, 96)).astype(np.float32), 32)
+    packed = pack_int4(q)
+    x = rng.normal(0, 1, (n, 96)).astype(np.float32)
+    exact = x.astype(np.float64) @ dequantize_groupwise_int4(packed, s, 32).astype(np.float64).T
+    np.testing.assert_allclose(backend.int4_linear(x, packed, s, 32), exact, rtol=1e-5, atol=1e-5)
+
+
 def test_linear_matches_float64(backend):
     rng = np.random.default_rng(1)
     w = rng.normal(0, 0.1, (7, 32)).astype(np.float32)
