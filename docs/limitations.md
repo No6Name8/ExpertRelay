@@ -166,8 +166,8 @@ generated from `benchmarks/results/phase3_analysis_<store>.json` and
 `docs/base-vs-chat.md`. The Chat runs wrap every prompt in the ChatML
 template (a system prompt, 36 prompt tokens on average vs 17), so a
 difference between the two is a difference between the two setups, not
-the effect of fine-tuning alone. The runtime's prefetch calibration is
-still the base store's (see "Expert cache and prefetcher"). What these
+the effect of fine-tuning alone. Each store has its own prefetch
+calibration (see "Expert cache and prefetcher"). What these
 results are and aren't:
 
 - **Measured:** which experts the int8 model's router picked, for 96 fixed
@@ -299,11 +299,14 @@ or on the command line. What is and isn't established:
   layer L's router, not earlier. Background reads use their own file
   handle per I/O thread (1 by default); the forward pass's own demand
   reads run alongside, so up to two reads can be in flight.
-- **Confidence threshold:** from the isotonic calibration fitted on the
-  BASE model's tuning-prompt traces
-  (`bench/fit_prefetch_calibration.py`). A Chat-store run reuses it until
-  a Chat calibration is fitted; the run's `load` info flags this
-  (`calibration_store_matches`). In prefill, each expert's score is its
+- **Confidence threshold:** from an isotonic calibration fitted on each
+  store's own tuning-prompt traces (`bench/fit_prefetch_calibration.py`;
+  `configs/runtime_cache.json` for base, `runtime_cache_chat.json` for
+  Chat). A run whose calibration came from another store is flagged in its
+  `load` info (`calibration_store_matches`). The Chat calibration was fitted
+  on ChatML-wrapped prompts, while `runtime.generate` feeds prompt text
+  as-is, so a Chat run with plain prompts is outside what it was fitted
+  on. In prefill, each expert's score is its
   best probability over the prompt's tokens, and the per-token calibration
   is applied to that: a heuristic.
 - **Layer 0** has no prefetch (no layer before it). `pin_layer0` keeps all
