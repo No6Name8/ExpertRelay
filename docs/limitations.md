@@ -11,7 +11,7 @@ each of these came to be.
 | Package | Status |
 |---|---|
 | `expertrelay.store` | Implemented: the full-model int8 expert store (`build_store`, `expert_reader`), selective HF fetch, pinned tokenizer, and a downloader for the original checkpoint (reference check only) |
-| `expertrelay.runtime` | Implemented: the full 24-layer Qwen1.5-MoE-A2.7B forward pass from the int8 store, with KV cache and greedy generation, on a swappable compute backend (numpy, MindSpore f32). Single device |
+| `expertrelay.runtime` | Implemented: the full 24-layer Qwen1.5-MoE-A2.7B forward pass from the int8 store, with KV cache and greedy generation, on a swappable compute backend (numpy with a fused numba int8 kernel for decode, MindSpore f32). Single device |
 | `expertrelay.manager` | The machine profile and compute-backend selection. **No multi-device Manager exists** (see "Device split" below) |
 | `expertrelay.cache` | `expert_cache`: the runtime's LRU expert cache with a fixed RAM budget, optional pinned layer 0 and background prefetch (`--source cached`). **Built and tested, not yet benchmarked** (see "Expert cache and prefetcher"). Offline simulators (`simulator`, `predictive`) replay recorded traces. RAM and one SSD only: no networked devices |
 | `expertrelay.predictor` | `prefetch_policy`: the runtime prefetcher's choice (top-k of the Fate-style guess, low-confidence guesses skipped). **Built and tested, not yet benchmarked.** Offline tools (`offline`: scoring, calibration, reuse model), fitted on recorded traces. Without `--source cached`, reads are still synchronous and reactive |
@@ -267,6 +267,56 @@ In addition:
   benchmark (2.08 ms, `docs/machine-profile.md`), which the runtime
   doesn't reach today. Prefill time isn't modeled; the projection is
   decode speed.
+
+## Faster compute and what it changed (Step B)
+
+`docs/stepb-benchmark.md` (`bench/stepb_benchmark.py`) and
+`benchmarks/results/compute_profile.json` (`bench/compute_profile.py`).
+
+- **Where compute went, before:** 0.99 s per generated token, 76% of it
+  converting int8 weights to float32 before BLAS multiplied them (0.75 s),
+  20% the multiplies, 3% everything else (norms, activations, routing,
+  Python). By component: shared expert 0.35 s, routed experts 0.32 s,
+  attention projections 0.16 s, lm_head 0.12 s.
+- **The fused int8 kernel** (`runtime.int8_linear`, numba) multiplies the
+  int8 weights directly for inputs of up to 4 rows. Compute per generated
+  token: 0.99 -> 0.09 s in the profile, 1.14 -> 0.12 s in the benchmark.
+  It is now the default. It also serves prefill whenever an expert gets
+  4 tokens or fewer, so prefill got faster too. It sums in a different
+  order; the reference check measured the same 98.2% agreement with bf16
+  as the blocked kernel, token by token (`docs/reference-check.md`).
+  Needs numba (a new dependency); without it the blocked kernel is used.
+- **Reads are now the bottleneck.** With the fused kernel a layer's
+  compute (the window a prefetch can hide behind) is ~4 ms, while one
+  read takes ~4.2 ms alone and ~7 ms when two share the drive. Prefetching
+  8 experts per layer can't finish in time: 29% of expert uses waited for
+  an unfinished prefetch, and the extra reads (136 per token) slowed
+  generation below no prefetching at all (1.61 vs 1.81 tok/s).
+- **Adaptive prefetching** (reads per layer capped at window x I/O
+  threads / read time) cuts prefetch reads from 136 to 30 per token and
+  wasted ones from 72 to 2.5, and is faster than fixed top-8 (1.82 vs
+  1.61 tok/s). Threshold 0.1 was not better than 0.05 (1.63 vs 1.82; one
+  of its runs had a burst of very slow reads). The fastest setup measured
+  was the cache with no prediction at all (1.99 tok/s): with compute this
+  fast, prediction mostly adds disk traffic. It is now the configs'
+  default to prefetch adaptively; whether to prefetch at all is open.
+- **Pipelined prefill** (a layer's experts queued on the I/O threads as
+  soon as its router has picked them): time to first token 8.5 s without
+  it (fused kernel, no cache) vs 5.6-6.1 s with it.
+- **"Idle drive is slower" (why the cache alone didn't help in Phase 4+5):
+  only partly.** In the no-cache run (blocked kernel), reads after a 20-50
+  ms idle gap took 6.6 ms (median) vs 4.3 ms after 1-5 ms; but in the
+  cache-only run the same gaps showed no penalty (4.4 ms). And this time
+  the cache alone DID help, in proportion to the reads it saved (0.61 ->
+  0.67 tok/s, time blocked on reads -20% for -20% reads). Phase 4+5's
+  "no gain" did not reproduce, so it was most likely that session's
+  conditions.
+- **This session was slower than Phase 4+5's:** the unchanged no-cache
+  setup ran at 0.61 tok/s (compute 1.14 s/token) vs 0.71 (0.92 s) on
+  2026-09-28. Phase 4+5 ran from a plain terminal with VS Code closed; this
+  benchmark ran with VS Code open. Compare setups within one benchmark,
+  not across them.
+- 4 prompts x 32 tokens, base store only, one cache size (1.25 GB).
 
 ## Expert cache and prefetcher (Phase 4+5)
 
