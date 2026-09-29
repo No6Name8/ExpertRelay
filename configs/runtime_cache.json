@@ -10,5 +10,6 @@
   "prefetch_min_probability": 0.05,
   "prefetch_calibration": "benchmarks/results/prefetch_calibration_qwen1.5-moe-a2.7b-int8.json",
   "pin_layer0": false,
-  "io_threads": 2
+  "io_threads": 2,
+  "prefetch_adaptive": true
 }
