@@ -159,8 +159,16 @@ Full table: `docs/phase2-baselines.md` (generated from
 
 ## Phase 3: expert-usage traces and cache simulation
 
-Results: `docs/phase3-analysis.md` (base store; generated from
-`benchmarks/results/phase3_analysis_<store>.json`). What they are and aren't:
+Results: `docs/phase3-analysis.md` (base store) and
+`docs/phase3-analysis-qwen1.5-moe-a2.7b-chat-int8.md` (Chat store), both
+generated from `benchmarks/results/phase3_analysis_<store>.json` and
+`phase35_prediction_<store>.json`; the two compared in
+`docs/base-vs-chat.md`. The Chat runs wrap every prompt in the ChatML
+template (a system prompt, 36 prompt tokens on average vs 17), so a
+difference between the two is a difference between the two setups, not
+the effect of fine-tuning alone. The runtime's prefetch calibration is
+still the base store's (see "Expert cache and prefetcher"). What these
+results are and aren't:
 
 - **Measured:** which experts the int8 model's router picked, for 96 fixed
   prompts x 128 greedy tokens (`runtime/expert_trace.py`, format in
