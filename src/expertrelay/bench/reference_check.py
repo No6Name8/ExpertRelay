@@ -15,7 +15,8 @@ For each prompt in the fixed prompt set:
 
 Compared: relative error of the hidden state after each layer, of the final
 hidden state and of the logits; top-1 agreement (at every position, does
-argmax of our logits equal argmax of the reference logits?); and routing
+argmax of our logits equal argmax of the reference logits?); KL divergence
+KL(reference || ours) of the next-token distributions, in nats; and routing
 agreement (does the router pick the same top-k experts?).
 
 Also measured: the same comparison with lm_head in fp16 instead of int8, so
@@ -220,6 +221,18 @@ def our_traces(
     return out
 
 
+def kl_per_position(ref_logits: np.ndarray, our_logits: np.ndarray) -> np.ndarray:
+    """KL(P_ref || P_ours) at each position, nats, from logits, in float64."""
+
+    def log_softmax(x: np.ndarray) -> np.ndarray:
+        x = x.astype(np.float64)
+        x = x - x.max(axis=-1, keepdims=True)
+        return x - np.log(np.exp(x).sum(axis=-1, keepdims=True))
+
+    lp, lq = log_softmax(ref_logits), log_softmax(our_logits)
+    return (np.exp(lp) * (lp - lq)).sum(axis=-1)
+
+
 def _rel(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.linalg.norm(a.astype(np.float64) - b) / np.linalg.norm(b.astype(np.float64)))
 
@@ -241,7 +254,19 @@ def compare(ours: ForwardTrace, our_logits: np.ndarray, ref: ReferenceTrace, pro
         "logits_rel_error": _rel(our_logits, ref.logits),
         "top1_agreement_all_positions": float(np.mean(ours_top1 == ref_top1)),
         "top1_agreement_generated_positions": float(np.mean(ours_top1[generated] == ref_top1[generated])),
+        "generated_positions": int(len(ours_top1[generated])),
+        "kl": _kl_summary(kl_per_position(ref.logits, our_logits)),
         "routing_per_layer": routing,
+    }
+
+
+def _kl_summary(kl: np.ndarray) -> dict:
+    return {
+        "mean": float(kl.mean()),
+        "median": float(np.median(kl)),
+        "max": float(kl.max()),
+        "sum": float(kl.sum()),
+        "positions": int(len(kl)),
     }
 
 
@@ -260,6 +285,8 @@ def lm_head_study(
         "positions_where_lm_head_precision_changes_top1": int(np.sum(int8_top1 != fp16_top1)),
         "logits_rel_error_int8_lm_head": _rel(our_logits, ref.logits),
         "logits_rel_error_fp16_lm_head": _rel(fp16_logits, ref.logits),
+        "kl_fp16_lm_head": _kl_summary(kl_per_position(ref.logits, fp16_logits)),
+        "positions": int(len(ref_top1)),
     }
 
 
@@ -284,6 +311,19 @@ def aggregate(per_prompt: list[dict]) -> dict:
         ),
         "logits_rel_error_mean": statistics.fmean(p["comparison"]["logits_rel_error"] for p in per_prompt),
         "top1_agreement_all_positions": weighted("top1_agreement_all_positions"),
+        "top1_agreement_generated_positions": sum(
+            p["comparison"]["top1_agreement_generated_positions"] * p["comparison"]["generated_positions"]
+            for p in per_prompt
+        )
+        / sum(p["comparison"]["generated_positions"] for p in per_prompt),
+        "generated_positions": sum(p["comparison"]["generated_positions"] for p in per_prompt),
+        "kl_mean": sum(p["comparison"]["kl"]["sum"] for p in per_prompt) / total,
+        "kl_max": max(p["comparison"]["kl"]["max"] for p in per_prompt),
+        "top1_agreement_all_positions_fp16_lm_head": sum(
+            p["lm_head"]["top1_agreement_fp16_lm_head"] * p["lm_head"]["positions"] for p in per_prompt
+        )
+        / total,
+        "kl_mean_fp16_lm_head": sum(p["lm_head"]["kl_fp16_lm_head"]["sum"] for p in per_prompt) / total,
         "positions": total,
         "lm_head_changes_top1_positions": sum(
             p["lm_head"]["positions_where_lm_head_precision_changes_top1"] for p in per_prompt
@@ -310,6 +350,11 @@ def format_markdown(record: dict, json_path: Path) -> str:
         "| | |",
         "|---|---|",
         f"| Top-1 agreement, all {agg['positions']} positions | **{agg['top1_agreement_all_positions']:.1%}** |",
+        f"| Top-1 agreement, the {agg['generated_positions']} generated positions | "
+        f"{agg['top1_agreement_generated_positions']:.1%} |",
+        f"| KL(reference \\|\\| ours), mean / max over positions (nats) | {agg['kl_mean']:.4f} / {agg['kl_max']:.4f} |",
+        f"| With lm_head in fp16 instead of int8: top-1 agreement / mean KL | "
+        f"{agg['top1_agreement_all_positions_fp16_lm_head']:.1%} / {agg['kl_mean_fp16_lm_head']:.4f} |",
         f"| Final hidden state, relative error (mean over prompts) | {agg['final_hidden_rel_error_mean']:.2%} |",
         f"| Logits, relative error (mean over prompts) | {agg['logits_rel_error_mean']:.2%} |",
         f"| Positions where int8 vs. fp16 lm_head changes the top-1 token | {agg['lm_head_changes_top1_positions']} |",
@@ -317,12 +362,14 @@ def format_markdown(record: dict, json_path: Path) -> str:
         "## Per prompt",
         "",
         "| Prompt | Positions | Top-1 agreement (all) | Top-1 agreement (generated) | Logits rel. error | "
-        "Top-1 with int8 / fp16 lm_head |",
-        "|---|---|---|---|---|---|",
+        "KL mean / max | Top-1 with int8 / fp16 lm_head |",
+        "|---|---|---|---|---|---|---|",
         *[
             f"| {p['id']} | {p['comparison']['positions']} | {p['comparison']['top1_agreement_all_positions']:.1%} | "
             f"{p['comparison']['top1_agreement_generated_positions']:.1%} | "
-            f"{p['comparison']['logits_rel_error']:.2%} | {p['lm_head']['top1_agreement_int8_lm_head']:.1%} / "
+            f"{p['comparison']['logits_rel_error']:.2%} | "
+            f"{p['comparison']['kl']['mean']:.4f} / {p['comparison']['kl']['max']:.4f} | "
+            f"{p['lm_head']['top1_agreement_int8_lm_head']:.1%} / "
             f"{p['lm_head']['top1_agreement_fp16_lm_head']:.1%} |"
             for p in prompts
         ],

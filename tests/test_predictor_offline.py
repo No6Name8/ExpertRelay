@@ -113,3 +113,28 @@ def test_reuse_model_thin_cells_fall_back_to_gap_rate():
     rm.fit()
     # every cell is "thin", so any count at gap 1 gets the gap-1 rate (expert 0 always reused)
     assert rm.lookup(np.array([1, 1]), np.array([0, 8])).tolist() == pytest.approx([1.0, 1.0])
+
+
+def test_ranks_desc():
+    from expertrelay.predictor.offline import ranks_desc
+
+    assert ranks_desc(np.array([[0.1, 0.5, 0.3], [0.2, 0.2, 0.9]])).tolist() == [[2, 0, 1], [1, 2, 0]]
+
+
+def test_rank_aware_calibration_separates_what_one_map_cannot():
+    from expertrelay.predictor.offline import RankedIsotonicCalibrator
+
+    # The same raw probability 0.3 is sometimes the top guess (always picked)
+    # and sometimes the third (never picked): only the rank tells them apart.
+    rows_top = np.tile([0.30, 0.20, 0.10, 0.05], (200, 1))
+    rows_low = np.tile([0.40, 0.35, 0.30, 0.05], (200, 1))
+    probs = np.vstack([rows_top, rows_low])
+    labels = np.zeros_like(probs, dtype=bool)
+    labels[:, 0] = True  # the top-ranked candidate is always the one picked
+    single = IsotonicCalibrator(num_bins=20).fit(probs, labels)
+    ranked = RankedIsotonicCalibrator(max_rank=3, num_bins=20).fit(probs, labels)
+    assert 0.2 < single.predict(np.array([0.30]))[0] < 0.8  # can't tell which 0.3 it is: neither 1 nor 0
+    np.testing.assert_allclose(ranked.predict(rows_top[:1])[0, :2], [1.0, 0.0])
+    np.testing.assert_allclose(ranked.predict(rows_low[:1])[0, :3], [1.0, 0.0, 0.0])
+    back = RankedIsotonicCalibrator.from_dict(ranked.to_dict())
+    np.testing.assert_array_equal(back.predict(probs[:5]), ranked.predict(probs[:5]))

@@ -59,3 +59,18 @@ def test_load_calibrator_uses_the_last_record(tmp_path):
     cal, provenance = load_calibrator(path)
     assert cal.predict(np.array([0.5]))[0] == pytest.approx(0.9)
     assert provenance["store"] == "b" and provenance["git_commit"] == "abc"
+
+
+def test_load_calibrator_prefers_the_rank_aware_map(tmp_path):
+    from expertrelay.predictor.offline import RankedIsotonicCalibrator
+
+    probs = np.tile([0.5, 0.3, 0.2], (50, 1))
+    labels = np.zeros_like(probs, dtype=bool)
+    labels[:, 0] = True
+    ranked = RankedIsotonicCalibrator(max_rank=2, num_bins=5).fit(probs, labels)
+    path = tmp_path / "cal.json"
+    path.write_text(json.dumps([{"calibrator": calibrator().to_dict(), "rank_calibrator": ranked.to_dict()}]))
+    cal, provenance = load_calibrator(path)
+    assert provenance["kind"] == "rank_isotonic"
+    policy = PrefetchPolicy(top_k=3, min_probability=0.5, calibrator=cal)
+    assert policy.choose(np.log(np.array([0.2, 0.5, 0.3]))).experts == [1]  # only the top guess survives

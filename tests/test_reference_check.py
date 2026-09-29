@@ -135,3 +135,14 @@ def test_comparison_catches_a_wrong_model(tiny):
     result = compare(trace, shuffled, ref, prompt_len=6)
     assert result["hidden_rel_error_per_layer"][1] > 0.3
     assert result["top1_agreement_all_positions"] < 0.5
+
+
+def test_kl_per_position():
+    from expertrelay.bench.reference_check import kl_per_position
+
+    a = np.array([[1.0, 2.0, 3.0], [0.0, 0.0, 0.0]])
+    np.testing.assert_allclose(kl_per_position(a, a), [0.0, 0.0], atol=1e-12)
+    p = np.array([0.5, 0.5])
+    q = np.array([0.9, 0.1])
+    expected = float(np.sum(p * np.log(p / q)))
+    assert kl_per_position(np.log(p)[None], np.log(q)[None])[0] == pytest.approx(expected)

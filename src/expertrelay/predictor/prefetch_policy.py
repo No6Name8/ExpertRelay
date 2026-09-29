@@ -9,8 +9,8 @@ this module only turns them into a list of experts, in plain numpy.
 The guess is the top-k experts by router probability. Guesses whose
 calibrated probability of being picked is below `min_probability` are
 dropped: a read that is almost never used still occupies the disk and a
-cache slot. The calibration is the isotonic map fitted on held-out traces
-in Phase 3.5 (predictor.offline.IsotonicCalibrator, B. Zadrozny, C. Elkan,
+cache slot. The calibration is an isotonic map fitted on held-out traces
+in Phase 3.5, one per guess rank where available (RankedIsotonicCalibrator) (predictor.offline.IsotonicCalibrator, B. Zadrozny, C. Elkan,
 KDD 2002), saved by bench/fit_prefetch_calibration.py. It maps the raw
 router softmax probability of one expert to P(that expert is among the
 top-k picked).
@@ -28,7 +28,7 @@ from pathlib import Path
 
 import numpy as np
 
-from expertrelay.predictor.offline import IsotonicCalibrator, softmax
+from expertrelay.predictor.offline import IsotonicCalibrator, RankedIsotonicCalibrator, softmax
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,7 @@ class PrefetchChoice:
 class PrefetchPolicy:
     top_k: int
     min_probability: float = 0.0
-    calibrator: IsotonicCalibrator | None = None
+    calibrator: IsotonicCalibrator | RankedIsotonicCalibrator | None = None
 
     def choose(self, router_logits: np.ndarray) -> PrefetchChoice:
         """router_logits: [n_tokens, E] (or [E]) for the layer being predicted."""
@@ -53,9 +53,10 @@ class PrefetchPolicy:
         return PrefetchChoice([int(e) for e in order[keep]], int((~keep).sum()))
 
 
-def load_calibrator(path: Path) -> tuple[IsotonicCalibrator, dict]:
+def load_calibrator(path: Path) -> tuple[IsotonicCalibrator | RankedIsotonicCalibrator, dict]:
     """From the last record of a bench/fit_prefetch_calibration.py results
-    file: (calibrator, where it came from)."""
+    file: (calibrator, where it came from). The rank-aware map when the
+    record has one, else the single map."""
     records = json.loads(Path(path).read_text(encoding="utf-8"))
     d = records[-1] if isinstance(records, list) else records
     provenance = {
@@ -63,5 +64,8 @@ def load_calibrator(path: Path) -> tuple[IsotonicCalibrator, dict]:
         "git_commit": d.get("git_commit"),
         "timestamp": d.get("timestamp"),
         "store": (d.get("model") or {}).get("store"),
+        "kind": "rank_isotonic" if "rank_calibrator" in d else "isotonic",
     }
+    if "rank_calibrator" in d:
+        return RankedIsotonicCalibrator.from_dict(d["rank_calibrator"]), provenance
     return IsotonicCalibrator.from_dict(d["calibrator"]), provenance

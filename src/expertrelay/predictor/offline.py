@@ -137,6 +137,73 @@ class IsotonicCalibrator:
         return cal
 
 
+def ranks_desc(probs: np.ndarray) -> np.ndarray:
+    """0-based rank of each entry along the last axis, highest first; ties
+    keep index order (the order predictor.offline.top_k and the prefetch
+    policy use)."""
+    order = np.argsort(-probs, axis=-1, kind="stable")
+    ranks = np.empty_like(order)
+    np.put_along_axis(ranks, order, np.arange(probs.shape[-1]), axis=-1)
+    return ranks
+
+
+class RankedIsotonicCalibrator:
+    """One isotonic map per rank of the guess (rank 1 = the expert with the
+    highest router probability), ranks >= max_rank sharing the last one.
+
+    A single map (IsotonicCalibrator) is right on average over all experts
+    but not per rank: the same raw probability means more for the top guess
+    than for the eighth, because what matters is how it compares with the
+    other candidates of that token. Conditioning on rank captures that.
+    Each map is fitted with the same isotonic regression (Zadrozny & Elkan,
+    KDD 2002)."""
+
+    def __init__(self, max_rank: int = 12, num_bins: int = 200):
+        self.max_rank = max_rank
+        self.num_bins = num_bins
+        self.per_rank: list[IsotonicCalibrator] = []
+
+    def _bucket(self, ranks: np.ndarray) -> np.ndarray:
+        return np.minimum(ranks, self.max_rank - 1)
+
+    def fit(self, probs: np.ndarray, labels: np.ndarray) -> RankedIsotonicCalibrator:
+        """probs, labels: [tokens, candidates] (all of a token's experts, any order)."""
+        bucket = self._bucket(ranks_desc(probs))
+        self.per_rank = [
+            IsotonicCalibrator(self.num_bins).fit(probs[bucket == r], labels[bucket == r])
+            for r in range(self.max_rank)
+        ]
+        return self
+
+    def predict(self, probs: np.ndarray) -> np.ndarray:
+        """probs: [..., candidates] of one token each, any order."""
+        if not self.per_rank:
+            raise RuntimeError("fit() first")
+        probs = np.asarray(probs)
+        bucket = self._bucket(ranks_desc(probs))
+        out = np.empty(probs.shape, dtype=np.float32)
+        for r, cal in enumerate(self.per_rank):
+            m = bucket == r
+            if m.any():
+                out[m] = cal.predict(probs[m])
+        return out
+
+    def to_dict(self) -> dict:
+        return {
+            "kind": "rank_isotonic",
+            "max_rank": self.max_rank,
+            "per_rank": [c.to_dict() for c in self.per_rank],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> RankedIsotonicCalibrator:
+        cal = cls(d["max_rank"])
+        cal.per_rank = [IsotonicCalibrator.from_dict(x) for x in d["per_rank"]]
+        if len(cal.per_rank) != cal.max_rank:
+            raise ValueError("one isotonic map per rank expected")
+        return cal
+
+
 def expected_calibration_error(probs: np.ndarray, labels: np.ndarray, num_bins: int = 20) -> float:
     """Equal-width-bin ECE: sum over bins of (bin share) * |observed rate -
     mean predicted probability|. M. P. Naeini, G. F. Cooper, M. Hauskrecht,

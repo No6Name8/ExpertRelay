@@ -12,6 +12,9 @@ time minus expert read time. With `--source mmap` the reads happen as page
 faults inside the matmuls, so they land in "compute" and only the device
 byte count shows them.
 
+Prompts from a Chat store are wrapped in the model's own chat template
+(store.chat_template) unless `--no-chat-template` asks for raw text.
+
 With `--source cached` experts stay in an LRU cache in RAM (budget
 `expert_cache_gb`), optionally with every layer-0 expert pinned, and the
 prefetcher loads the Fate-guessed experts for the next layer in the
@@ -55,6 +58,7 @@ from expertrelay.runtime.weights import (
     ResidentWeights,
     UnbufferedExpertSource,
 )
+from expertrelay.store.chat_template import ChatTemplate, is_chat_store
 from expertrelay.store.layout import read_resident_index
 from expertrelay.store.tokenizer import load_tokenizer
 
@@ -90,6 +94,9 @@ class RuntimeConfig:
     prefetch_calibration: Path | None = None
     pin_layer0: bool = False
     io_threads: int = 1
+    # None = the store decides (store.chat_template.is_chat_store): Chat stores
+    # get their chat template, base stores raw text
+    chat_template: bool | None = None
 
     @classmethod
     def load(cls, path: Path = DEFAULT_RUNTIME_CONFIG) -> RuntimeConfig:
@@ -108,6 +115,7 @@ class RuntimeConfig:
             prefetch_calibration=REPO_ROOT / calibration if calibration else None,
             pin_layer0=d.get("pin_layer0", False),
             io_threads=d.get("io_threads", 1),
+            chat_template=d.get("chat_template"),
         )
 
     def cache_slots_needed(self, config: ModelConfig) -> tuple[int, int]:
@@ -303,9 +311,11 @@ def run_prompts(
     free_at_start = measure_memory().available_bytes
     model, info = load_model(store_dir, source, rt.max_seq, budget_gb, backend, rt)
     tokenizer = load_tokenizer(store_dir)
+    use_template = rt.chat_template if rt.chat_template is not None else is_chat_store(store_dir)
+    template = ChatTemplate.for_store(store_dir) if use_template else None
     results = []
     for p in prompts:
-        prompt_ids = tokenizer.encode(p["text"]).ids
+        prompt_ids = tokenizer.encode(template.user_prompt(p["text"]) if template else p["text"]).ids
         generated, steps = generate(model, prompt_ids, rt.max_new_tokens, rt.max_seq)
         results.append(
             {
@@ -320,6 +330,7 @@ def run_prompts(
     model.experts.close()
     return {
         "load": info,
+        "prompt_format": "chat_template" if template else "raw",
         "ram_available_at_start_bytes": free_at_start,
         "prompts": results,
         "peak_rss_mb": peak_process_rss_mb(),
@@ -354,6 +365,12 @@ def main() -> None:
     cache.add_argument("--prefetch-min-probability", type=float, default=None)
     cache.add_argument("--pin-layer0", action=argparse.BooleanOptionalAction, default=None)
     cache.add_argument("--io-threads", type=int, default=None)
+    ap.add_argument(
+        "--chat-template",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="wrap prompts in the model's chat template (default: yes for Chat stores, no for base stores)",
+    )
     args = ap.parse_args()
 
     rt = RuntimeConfig.load(args.config)
@@ -365,6 +382,7 @@ def main() -> None:
         "prefetch_min_probability": args.prefetch_min_probability,
         "pin_layer0": args.pin_layer0,
         "io_threads": args.io_threads,
+        "chat_template": args.chat_template,
     }
     rt = replace(rt, **{k: v for k, v in overrides.items() if v is not None})
     store_dir = args.store_dir or rt.store_dir

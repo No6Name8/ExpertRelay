@@ -37,17 +37,12 @@ from expertrelay.manager.profile import collect_machine_profile
 from expertrelay.paths import BENCHMARK_RESULTS_DIR, MODELS_ROOT
 from expertrelay.runtime.expert_trace import ExpertTraceWriter
 from expertrelay.runtime.generate import RuntimeConfig, generate, load_model
+from expertrelay.store.chat_template import ChatTemplate
 from expertrelay.store.tokenizer import load_tokenizer
 
 DEFAULT_CONFIG = REPO_ROOT / "configs" / "phase3.json"
 PHASE2_RESULTS = BENCHMARK_RESULTS_DIR / "phase2_baselines.json"
 TRACES_ROOT = MODELS_ROOT / "traces"
-# Qwen1.5-Chat's template (tokenizer_config.json chat_template at the pinned
-# revision), specialized to one user turn with the default system prompt.
-CHATML = (
-    "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
-    "<|im_start|>user\n{text}<|im_end|>\n<|im_start|>assistant\n"
-)
 
 
 def trace_dir_for(store_dir: Path) -> Path:
@@ -58,8 +53,9 @@ def prompt_format_for(store_source: dict) -> str:
     return "chatml" if store_source["repo_id"].endswith("-Chat") else "plain"
 
 
-def format_prompt(text: str, fmt: str) -> str:
-    return CHATML.format(text=text) if fmt == "chatml" else text
+def format_prompt(text: str, fmt: str, store_dir: Path) -> str:
+    """ "chatml": the store's own chat template (store.chat_template), one user turn."""
+    return ChatTemplate.for_store(store_dir).user_prompt(text) if fmt == "chatml" else text
 
 
 def round_robin(prompts: list[dict]) -> list[dict]:
@@ -104,7 +100,7 @@ def main() -> None:
     fmt = prompt_format_for(source)
     prompts = round_robin(json.loads(rt.prompts_file.read_text(encoding="utf-8"))["prompts"])
     tokenizer = load_tokenizer(rt.store_dir)
-    encoded = {p["id"]: tokenizer.encode(format_prompt(p["text"], fmt)).ids for p in prompts}
+    encoded = {p["id"]: tokenizer.encode(format_prompt(p["text"], fmt, rt.store_dir)).ids for p in prompts}
     too_long = [pid for pid, ids in encoded.items() if len(ids) + rt.max_new_tokens > rt.max_seq]
     if too_long:
         raise SystemExit(f"prompts too long for max_seq={rt.max_seq}: {too_long}")

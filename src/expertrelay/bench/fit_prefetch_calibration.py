@@ -2,9 +2,11 @@
 
     python -m expertrelay.bench.fit_prefetch_calibration            # base store
 
-Offline, from finished traces only. Fits the Phase 3.5 isotonic map (raw
-Fate router softmax probability of one expert -> P(it is among the experts
-picked)) on the TUNING prompts (odd-numbered in every category, as in
+Offline, from finished traces only. Fits two maps from the raw Fate
+router softmax probability of one expert to P(it is among the experts
+picked): the Phase 3.5 single isotonic map, and a rank-aware one (one map
+per rank of the guess, predictor.offline.RankedIsotonicCalibrator), on the
+TUNING prompts (odd-numbered in every category, as in
 bench/phase35_prediction.py), and reports on the TEST prompts what a
 confidence threshold would cost: for the top-k guess, how many prefetches
 each threshold drops and how many of those would have been used.
@@ -30,53 +32,85 @@ from expertrelay.benchmarking import append_benchmark_record, base_record, peak_
 from expertrelay.manager.profile import collect_machine_profile
 from expertrelay.memory_budget import enforce_ram_budget
 from expertrelay.paths import BENCHMARK_RESULTS_DIR
-from expertrelay.predictor.offline import IsotonicCalibrator, softmax, top_k
+from expertrelay.predictor.offline import (
+    IsotonicCalibrator,
+    RankedIsotonicCalibrator,
+    expected_calibration_error,
+    softmax,
+    top_k,
+)
 from expertrelay.runtime.generate import RuntimeConfig
 
 PREFETCH_K = 8
+MAX_RANK = 12
 THRESHOLDS = [0.01, 0.02, 0.05, 0.1, 0.2]
 MAX_RAM_GB = 1.0
 RAM_PER_TRACE_BYTE = 7  # as bench/phase35_prediction.py: same arrays
 
 
+def _threshold_rows(cal_top: np.ndarray, used_top: np.ndarray, total_used: int) -> list[dict]:
+    rows = []
+    for t in THRESHOLDS:
+        drop = cal_top < t
+        rows.append(
+            {
+                "min_probability": t,
+                "prefetches_dropped": float(drop.mean()),
+                "dropped_that_would_be_used": float(used_top[drop].mean()) if drop.any() else None,
+                "recall_kept": float((used_top & ~drop).sum() / total_used),
+            }
+        )
+    return rows
+
+
 def fit(tune, test) -> dict:
+    """Both maps fitted on the tuning prompts; everything reported is on the
+    test prompts. The runtime uses the rank-aware one (load_calibrator)."""
     later = slice(1, None)  # layer 0 has no previous layer, so no Fate guess
     probs_t = flat(softmax(stack(tune, "fate")), later)
     used_t = flat(stack(tune, "used"), later)
     cal = IsotonicCalibrator().fit(probs_t, used_t)
+    ranked = RankedIsotonicCalibrator(max_rank=MAX_RANK).fit(probs_t, used_t)
     del probs_t, used_t
 
     probs = flat(softmax(stack(test, "fate")), later)
     used = flat(stack(test, "used"), later)
-    guess = top_k(probs, 12)  # ranked: top_k sorts by score, highest first
+    guess = top_k(probs, MAX_RANK)  # ranked: top_k sorts by score, highest first
     guess_p = np.take_along_axis(probs, guess, axis=1)
-    guess_cal = cal.predict(guess_p)
     guess_used = np.take_along_axis(used, guess, axis=1)
+    single = cal.predict(guess_p)
+    by_rank_cal = ranked.predict(guess_p)  # guess_p is in rank order, so ranks are right
     by_rank = [
         {
             "rank": r + 1,
-            "mean_calibrated": float(guess_cal[:, r].mean()),
             "observed_picked": float(guess_used[:, r].mean()),
+            "mean_calibrated": float(single[:, r].mean()),
+            "mean_rank_calibrated": float(by_rank_cal[:, r].mean()),
         }
         for r in range(guess.shape[1])
     ]
     top = slice(0, PREFETCH_K)
-    thresholds = []
-    for t in THRESHOLDS:
-        drop = guess_cal[:, top] < t
-        thresholds.append(
-            {
-                "min_probability": t,
-                "prefetches_dropped": float(drop.mean()),
-                "dropped_that_would_be_used": float(guess_used[:, top][drop].mean()) if drop.any() else None,
-                "recall_kept": float((guess_used[:, top] & ~drop).sum() / used.sum()),
-            }
-        )
+    total = int(used.sum())
     return {
         "calibrator": cal.to_dict(),
+        "rank_calibrator": ranked.to_dict(),
         "test_rank_summary": by_rank,
-        "test_thresholds_for_top_k": {"k": PREFETCH_K, "rows": thresholds},
-        "test_recall_top_k_no_threshold": float(guess_used[:, top].sum() / used.sum()),
+        "test_ece_top12": {
+            "single_map": expected_calibration_error(single, guess_used),
+            "rank_aware": expected_calibration_error(by_rank_cal, guess_used),
+        },
+        "test_mean_abs_rank_error": {
+            "single_map": float(np.mean([abs(x["mean_calibrated"] - x["observed_picked"]) for x in by_rank])),
+            "rank_aware": float(
+                np.mean([abs(x["mean_rank_calibrated"] - x["observed_picked"]) for x in by_rank])
+            ),
+        },
+        "test_thresholds_for_top_k": {
+            "k": PREFETCH_K,
+            "rows": _threshold_rows(single[:, top], guess_used[:, top], total),
+            "rows_rank_aware": _threshold_rows(by_rank_cal[:, top], guess_used[:, top], total),
+        },
+        "test_recall_top_k_no_threshold": float(guess_used[:, top].sum() / total),
     }
 
 
@@ -116,6 +150,7 @@ def main() -> None:
             "test_prompts": len(test),
             "layers": "1..23 (layer 0 has no Fate guess), generated tokens",
             "prefetch_k": PREFETCH_K,
+            "max_rank": MAX_RANK,
             "thresholds": THRESHOLDS,
         },
         machine=collect_machine_profile(measure_disk=False),
@@ -126,7 +161,8 @@ def main() -> None:
     append_benchmark_record(out, record)
     print(
         json.dumps(
-            {k: record[k] for k in ("test_thresholds_for_top_k", "test_recall_top_k_no_threshold")}, indent=1
+            {k: record[k] for k in ("test_ece_top12", "test_mean_abs_rank_error", "test_rank_summary")},
+            indent=1,
         )
     )
     print(f"saved {out}")
