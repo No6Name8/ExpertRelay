@@ -268,6 +268,34 @@ In addition:
   doesn't reach today. Prefill time isn't modeled; the projection is
   decode speed.
 
+## 4-bit experts (Step B2): half the bytes, too much quality lost
+
+`docs/int4-experts.md`, from `benchmarks/results/int4_store_build.json`,
+`quantization_quality.json` and `int4_benchmark.json`; store metadata
+(sha256 of every record) in `benchmarks/stores/`.
+
+- **Method: plain round-to-nearest only.** Symmetric 4-bit, float16 scale
+  per group of 128 or 64 input columns, quantized from the original bf16
+  weights, routed experts only (everything resident stays int8). No
+  calibration data, no GPTQ or AWQ; those usually do much better at 4 bits,
+  so these numbers are what RTN costs, not what 4-bit costs.
+- **Size:** a record is 51.4% (group 128) or 53.0% (group 64) of int8's.
+  Reconstruction error per expert: 11.8% / 10.8% mean, vs 0.83% for int8.
+- **Quality: FAILS the pass rule** (fixed before the run: overall top-1
+  agreement with bf16 >= 96% and every category >= 90%). Top-1 agreement:
+  int8 97.8%, int4-g128 87.7%, int4-g64 89.6%; mean KL 0.0027 vs 0.19 /
+  0.17 nats. Arabic suffers most (Gulf Arabic 81.1% / 83.2%, MSA 84.8% /
+  89.2%); code least (93.2% / 95.9%).
+- **Sample:** 28 prompts (4 Phase 2 + 4 per category), 1,478 positions,
+  each prompt continued by the int8 model and every model scored on those
+  same positions (teacher forcing). Per-step agreement, not identity of
+  long free-running generations.
+- **Build memory:** the int4 builds peaked at 4.0-4.5 GB of process memory,
+  against a 0.5 GB estimate. The difference is pages of the memory-mapped
+  bf16 shards, which Windows counts in the process's working set but can
+  drop at any time; the builder's own allocations stay small. The estimate
+  doesn't count mapped file pages.
+
 ## Faster compute and what it changed (Step B)
 
 `docs/stepb-benchmark.md` (`bench/stepb_benchmark.py`) and
