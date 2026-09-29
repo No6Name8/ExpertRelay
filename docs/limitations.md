@@ -258,8 +258,9 @@ or on the command line. What is and isn't established:
   (`bench/phase4_benchmark.py`): the 4 Phase 2 prompts x 32 tokens, each
   setup twice, 1.25 GB cache, 2 I/O threads. Decode speed went from 0.71
   tok/s (no cache) to 0.90 (prefetch top-8) and 0.95 (top-8 + layer 0
-  pinned). That is 124 generated tokens per run, on one machine, with
-  VS Code open and other apps closed; the two runs of each setup agree to
+  pinned). That is 124 generated tokens per run, on one machine, run from
+  a plain terminal with VS Code and other apps closed (3.35 GB of RAM free
+  at the start); the two runs of each setup agree to
   within 0.04 tok/s. Not yet measured: other prompts, the Chat store,
   longer generations, other cache sizes.
 - **Correctness on the real model:** all 10 runs gave tokens identical to
