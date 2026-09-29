@@ -59,6 +59,7 @@ from expertrelay.benchmarking import append_benchmark_record, base_record, peak_
 from expertrelay.manager.profile import collect_machine_profile
 from expertrelay.paths import BENCHMARK_RESULTS_DIR
 from expertrelay.runtime.generate import DEFAULT_RUNTIME_CONFIG, RuntimeConfig, generate, load_model
+from expertrelay.runtime.int8_linear import set_kernel as set_int8_kernel
 from expertrelay.runtime.qwen_moe import ForwardTrace, KVCache
 from expertrelay.store.download_checkpoint import checkpoint_dir
 from expertrelay.store.tokenizer import load_tokenizer
@@ -227,15 +228,52 @@ def lm_head_logits(ckpt: Bf16Checkpoint, hidden: np.ndarray, dtype: torch.dtype)
 # ---------------------------------------------------------------------------
 
 
+# Our side is computed three ways over the same token sequences:
+#   prefill_blocked  one prefill over prompt + continuation (the check's original
+#                    method; many rows at once, so always the blocked kernel)
+#   decode_blocked   the prompt in one prefill, then the continuation one token
+#                    at a time, as the runtime generates, blocked kernel
+#   decode_fused     the same with the fused decode kernel: what the runtime does now
+VARIANTS = {
+    "prefill_blocked": ("prefill", "blocked"),
+    "decode_blocked": ("decode", "blocked"),
+    "decode_fused": ("decode", "fused"),
+}
+PRIMARY_VARIANT = "decode_fused"
+
+
+def _merge(parts: list[ForwardTrace]) -> ForwardTrace:
+    """One trace over all positions from per-call traces, in position order."""
+    layers = len(parts[0].hidden_after_layer)
+    return ForwardTrace(
+        hidden_after_layer=[np.concatenate([t.hidden_after_layer[i] for t in parts]) for i in range(layers)],
+        selected_experts=[np.concatenate([t.selected_experts[i] for t in parts]) for i in range(layers)],
+        final_hidden=np.concatenate([t.final_hidden for t in parts]),
+    )
+
+
 def our_traces(
-    store_dir: Path, rt: RuntimeConfig, sequences: list[list[int]]
+    store_dir: Path,
+    rt: RuntimeConfig,
+    sequences: list[list[int]],
+    prompt_lens: list[int],
+    mode: str = "prefill",
+    kernel: str = "blocked",
 ) -> list[tuple[ForwardTrace, np.ndarray]]:
+    set_int8_kernel(kernel)
     model, _ = load_model(store_dir, "unbuffered", rt.max_seq, rt.memory_budget_gb)
+    set_int8_kernel(kernel)  # load_model applies the config default; this run is about `kernel`
     out = []
-    for ids in sequences:
-        trace = ForwardTrace()
-        logits, _ = model.forward(np.asarray(ids), KVCache(model.c, rt.max_seq), all_logits=True, trace=trace)
-        out.append((trace, logits))
+    for ids, n in zip(sequences, prompt_lens, strict=True):
+        cache = KVCache(model.c, rt.max_seq)
+        feeds = [ids] if mode == "prefill" else [ids[:n], *([t] for t in ids[n:])]
+        parts, logits = [], []
+        for feed in feeds:
+            trace = ForwardTrace()
+            lg, _ = model.forward(np.asarray(feed), cache, all_logits=True, trace=trace)
+            parts.append(trace)
+            logits.append(lg)
+        out.append((_merge(parts), np.concatenate(logits)))
     model.experts.close()
     return out
 
@@ -350,6 +388,30 @@ def aggregate(per_prompt: list[dict]) -> dict:
     }
 
 
+def _variant_table(record: dict) -> list[str]:
+    variants = record.get("variants")
+    if not variants:
+        return []
+    labels = {
+        "prefill_blocked": "one prefill over all positions, blocked kernel (the first run's method)",
+        "decode_blocked": "prompt prefill, then one token at a time, blocked kernel",
+        "decode_fused": "prompt prefill, then one token at a time, fused kernel (the runtime now)",
+    }
+    lines = [
+        "## Our side, three ways",
+        "",
+        "| how our model was run | same next token, all positions | generated positions | mean KL (nats) |",
+        "|---|---|---|---|",
+    ]
+    for name, v in variants.items():
+        a = v["aggregate"]
+        lines.append(
+            f"| {labels.get(name, name)} | **{a['top1_agreement_all_positions']:.1%}** | "
+            f"{a['top1_agreement_generated_positions']:.1%} | {a['kl_mean']:.4f} |"
+        )
+    return [*lines, ""]
+
+
 def format_markdown(record: dict, json_path: Path) -> str:
     agg, prompts = record["aggregate"], record["per_prompt"]
     lines = [
@@ -362,9 +424,10 @@ def format_markdown(record: dict, json_path: Path) -> str:
         "Reference: `transformers` "
         f"{record['config']['transformers_version']} Qwen2MoE, run one decoder layer at a time on the original "
         "bf16 weights upcast to f32. Ours: the int8 store, numpy runtime. Same token sequences (prompt + our "
-        "greedy continuation), one prefill each.",
+        "greedy continuation, generated with the blocked kernel).",
         "",
-        "## Summary",
+        *_variant_table(record),
+        f"## Summary: {record.get('primary_variant', 'prefill_blocked')}",
         "",
         "| | |",
         "|---|---|",
@@ -443,6 +506,9 @@ def main() -> None:
 
     tokenizer = load_tokenizer(rt.store_dir)
     model, _ = load_model(rt.store_dir, "unbuffered", rt.max_seq, rt.memory_budget_gb)
+    # continuations generated with the blocked kernel, as in the first run of
+    # this check, so every variant and every run compare the same sequences
+    set_int8_kernel("blocked")
     sequences, prompt_lens = [], []
     for p in prompts:
         ids = tokenizer.encode(p["text"]).ids
@@ -454,23 +520,30 @@ def main() -> None:
     del model
     gc.collect()
 
-    ours = our_traces(rt.store_dir, rt, sequences)
-    gc.collect()
+    ours = {}
+    for name, (mode, kernel) in VARIANTS.items():
+        ours[name] = our_traces(rt.store_dir, rt, sequences, prompt_lens, mode, kernel)
+        gc.collect()
+        print(f"ours: {name}", flush=True)
     ckpt = Bf16Checkpoint(ckpt_dir)
     refs = hf_reference_forward(ckpt, sequences)
 
-    per_prompt = []
-    for p, n, (trace, logits), ref in zip(prompts, prompt_lens, ours, refs, strict=True):
-        per_prompt.append(
-            {
-                "id": p["id"],
-                "prompt_tokens": n,
-                "comparison": compare(trace, logits, ref, n),
-                "lm_head": lm_head_study(ckpt, trace, logits, ref),
-            }
-        )
-    record["per_prompt"] = per_prompt
-    record["aggregate"] = aggregate(per_prompt)
+    record["variants"] = {}
+    for name, traces in ours.items():
+        per_prompt = []
+        for p, n, (trace, logits), ref in zip(prompts, prompt_lens, traces, refs, strict=True):
+            per_prompt.append(
+                {
+                    "id": p["id"],
+                    "prompt_tokens": n,
+                    "comparison": compare(trace, logits, ref, n),
+                    "lm_head": lm_head_study(ckpt, trace, logits, ref),
+                }
+            )
+        record["variants"][name] = {"per_prompt": per_prompt, "aggregate": aggregate(per_prompt)}
+    record["primary_variant"] = PRIMARY_VARIANT
+    record["per_prompt"] = record["variants"][PRIMARY_VARIANT]["per_prompt"]
+    record["aggregate"] = record["variants"][PRIMARY_VARIANT]["aggregate"]
     record["peak_rss_mb"] = peak_process_rss_mb()
     append_benchmark_record(args.out, record)
     DOC.write_text(format_markdown(record, args.out), encoding="utf-8")

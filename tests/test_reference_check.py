@@ -146,3 +146,32 @@ def test_kl_per_position():
     q = np.array([0.9, 0.1])
     expected = float(np.sum(p * np.log(p / q)))
     assert kl_per_position(np.log(p)[None], np.log(q)[None])[0] == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("kernel", ["blocked", "fused"])
+def test_token_by_token_variant_covers_the_same_positions(tiny, kernel):
+    """The decode variants feed the continuation one token at a time; they
+    must produce one logits row and one hidden row per position, close to
+    the single-prefill result (same weights, different summation order)."""
+    from pathlib import Path
+
+    from expertrelay.bench.reference_check import our_traces
+    from expertrelay.runtime import int8_linear
+    from expertrelay.runtime.generate import RuntimeConfig
+
+    if kernel == "fused":
+        pytest.importorskip("numba")
+    _, store_dir = tiny
+    rt = RuntimeConfig(memory_budget_gb=100, max_seq=32, max_new_tokens=6, prompts_file=Path("unused"),
+                       store_dir=store_dir)  # fmt: skip
+    before = int8_linear.current_kernel()
+    try:
+        ((prefill_trace, prefill_logits),) = our_traces(store_dir, rt, [SEQUENCE], [6], "prefill", "blocked")
+        ((decode_trace, decode_logits),) = our_traces(store_dir, rt, [SEQUENCE], [6], "decode", kernel)
+    finally:
+        int8_linear.set_kernel(before)
+    assert decode_logits.shape == prefill_logits.shape == (len(SEQUENCE), HF_CONFIG["vocab_size"])
+    np.testing.assert_allclose(decode_logits, prefill_logits, rtol=1e-4, atol=1e-4)
+    for a, b in zip(decode_trace.hidden_after_layer, prefill_trace.hidden_after_layer, strict=True):
+        assert a.shape == b.shape
+    np.testing.assert_array_equal(decode_trace.selected_experts[0], prefill_trace.selected_experts[0])
