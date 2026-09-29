@@ -248,24 +248,38 @@ In addition:
   doesn't reach today. Prefill time isn't modeled; the projection is
   decode speed.
 
-## Expert cache and prefetcher (Phase 4+5): built, not yet measured
+## Expert cache and prefetcher (Phase 4+5)
 
 `--source cached` (`cache/expert_cache.py`, `predictor/prefetch_policy.py`,
 hooks in `runtime/qwen_moe.py`), settings in `configs/runtime_cache.json`
 or on the command line. What is and isn't established:
 
-- **No speed has been measured.** Tokens/s, hit rates on the real model,
-  and the per-layer attention / MoE / read-wait split are instrumented
-  (`generate.StepRecord`) but have not been run on the 24-layer model.
-  Every speed figure for the cache so far is a projection from traces
-  (`docs/phase3-analysis.md`, sections 7-8).
-- **Correctness is tested on the tiny synthetic model only:** cache and
-  prefetcher on or off, cache smaller than one layer, layer 0 pinned, one
-  or two I/O threads, the switch flipped mid-generation, all give logits
-  bit-identical to the all-in-RAM reference
-  (`tests/test_runtime_correctness.py`). On the real model the same check
-  (tokens with the cache and prefetcher on vs. off) is still to be run with
-  the benchmarks.
+- **Measured once, on a small prompt set.** `docs/phase4-benchmark.md`
+  (`bench/phase4_benchmark.py`): the 4 Phase 2 prompts x 32 tokens, each
+  setup twice, 1.25 GB cache, 2 I/O threads. Decode speed went from 0.71
+  tok/s (no cache) to 0.90 (prefetch top-8) and 0.95 (top-8 + layer 0
+  pinned). That is 124 generated tokens per run, on one machine, with
+  VS Code open and other apps closed; the two runs of each setup agree to
+  within 0.04 tok/s. Not yet measured: other prompts, the Chat store,
+  longer generations, other cache sizes.
+- **Correctness on the real model:** all 10 runs gave tokens identical to
+  that session's no-cache run and to Phase 2's recorded setup C. Tokens,
+  not logits: the benchmark doesn't record logits. On the tiny synthetic
+  model, cache and prefetcher on or off, cache smaller than one layer,
+  layer 0 pinned, one or two I/O threads and the switch flipped
+  mid-generation all give logits bit-identical to the all-in-RAM reference
+  (`tests/test_runtime_correctness.py`).
+- **Half the prefetched reads are wasted** at top-8 (81 of 166 reads per
+  token). They're hidden behind compute today, but they are real SSD
+  traffic and would compete with anything else using the disk.
+- **Compute rises slightly with prefetching** (0.92 -> 0.97 s per token):
+  the background reads and the extra router product share the CPU and
+  memory bandwidth.
+- **Cache without prefetch didn't help:** 19.7% hits cut reads from 96 to
+  77 per token, but the time blocked on reads stayed at ~0.48 s. Reads
+  became sparser, and pauses between reads are what makes them slow (see
+  "The disk benchmark overstates what expert reads get"); that's the
+  likely reason, not yet isolated.
 - **Memory:** the cache is a fixed pool of whole expert slots
   (`expert_cache_gb` / 8.67 MB, rounded down), allocated once and counted
   in the process estimate that the budget is checked against. With the
