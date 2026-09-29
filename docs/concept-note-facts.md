@@ -133,14 +133,23 @@ models, with the same code path as the real model.
 
 On the real model, B and C give identical tokens (section 3).
 
-**Pending: the real-model accuracy of int8 vs. the original bf16 weights.**
-- `bench/reference_check.py` compares our int8 hidden states and logits,
-  layer by layer, against HF transformers on the original bf16 weights.
-- It needs the 28.6 GB bf16 checkpoint on disk, and that download hasn't
-  finished.
-- Until it runs, the real-model accuracy of the int8 runtime is
-  **unmeasured**. Source: `docs/limitations.md`.
-- No quality benchmark has been run either. Source: `docs/limitations.md`.
+**Measured: the int8 model vs. the original bf16 weights.** Source:
+`benchmarks/results/reference_check.json`, record 1 of 1 (timestamp
+2026-09-29T12:07:49Z, code commit `2c26532`, clean tree); written up in
+`docs/reference-check.md`.
+- Same 4 Phase 2 prompts; each prompt plus our model's 32 greedy tokens
+  run through both models (223 positions, 128 of them generated).
+- The int8 model's most likely next token equals the bf16 model's at
+  **98.2%** of positions (219 of 223); 97.7% of the generated positions
+  (125 of 128).
+- Mean KL divergence from bf16 to int8: 0.0022 nats per position (max
+  0.040).
+- Same top-4 expert set as bf16: 90-97% of the time, depending on the
+  layer.
+- lm_head in fp16 instead of int8 doesn't raise agreement (97.8%).
+- Limits: 4 prompts, one continuation each; per-step agreement, not
+  identity of long free-running generations. No task-accuracy benchmark
+  has been run. Source: `docs/limitations.md`.
 
 ## 5. Dates
 

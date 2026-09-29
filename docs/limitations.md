@@ -114,14 +114,23 @@ Source: `benchmarks/results/int8_kernels.json`, commit `90b5e9e`, clean tree.
 - **Real model vs. bf16: `bench/reference_check.py`, results in
   `docs/reference-check.md`.** Layer-by-layer comparison of our int8
   hidden states and logits against HF transformers on the ORIGINAL bf16
-  weights, same input. It needs those weights on disk, and they're
-  still downloading at the time of writing (28.6 GB). Until that file
-  exists, the real-model accuracy of the int8 runtime is **unmeasured**.
+  weights, same input (checkpoint shards sha256-verified against the
+  Hub). Measured 2026-09-29 on the 4 Phase 2 prompts, 223 positions: the
+  int8 model's top next token equals bf16's at 98.2% of positions (97.7%
+  of the 128 generated ones); mean KL(bf16 || int8) 0.0022 nats, max
+  0.040. That is a small sample: 4 prompts, each continued with OUR
+  greedy tokens (teacher-forced), so it measures per-step agreement, not
+  whether long free-running generations stay identical. The HF side reads
+  the shards two at a time: with all eight open it crashed on Windows
+  (see `bench/reference_check.py`).
 - **int8 changes outputs compared to bf16.** Weight-only, symmetric,
   per-output-channel int8 (Krishnamoorthi 2018; the weight side of Dettmers
   et al. 2022 LLM.int8(), without its outlier decomposition) is lossy.
   Reconstruction error per tensor is in `docs/expert-store.md`: `lm_head`
-  is the worst at 1.92%, routed experts average 0.83%.
+  is the worst at 1.92%, routed experts average 0.83%. The int8 `lm_head`
+  isn't what changes answers: with `lm_head` in fp16 the agreement is
+  97.8% (vs 98.2%), mean KL 0.0015; the two differ in their top token at
+  3 of 223 positions, in both directions. So `lm_head` stays int8.
 
 ## Phase 2 baselines: what the numbers mean
 
@@ -151,8 +160,9 @@ Full table: `docs/phase2-baselines.md` (generated from
 - **Output quality isn't evaluated.** The sample outputs are fluent in
   English, code and math, but the Arabic sample states a wrong date for
   Cairo and repeats itself. That's plausible for a base model under greedy
-  decoding, and it's from int8 weights whose effect vs. bf16 is still
-  pending (reference check, below). No quality benchmark has been run.
+  decoding; the int8 model agrees with bf16 on the next token at 98.2% of
+  positions on these prompts (`docs/reference-check.md`). No quality
+  benchmark (accuracy on a task set) has been run.
 - **Timing noise:** the runs share the machine with VS Code, Defender and
   a background download. Free RAM at start was 4.2 GB (run 1) and 3.0 GB
   (run 2); decode speed differed by 4% between runs.
@@ -174,8 +184,10 @@ results are and aren't:
   prompts x 128 greedy tokens (`runtime/expert_trace.py`, format in
   `docs/trace-format.md`). Tracing is tested not to change any token.
 - **Routing of the int8 model, not bf16.** int8 can change which experts get
-  picked (see "The int8 expert store"). How much is part of the pending
-  reference check.
+  picked (see "The int8 expert store"). On the Phase 2 prompts the same
+  top-4 set is picked 90-97% of the time per layer
+  (`docs/reference-check.md`); the traces' routing statistics are the int8
+  model's.
 - **Greedy decoding, fixed length, EOS ignored.** Past a natural ending,
   the base model under greedy decoding often repeats itself, and
   repetition probably inflates temporal locality and reuse compared with
@@ -299,14 +311,21 @@ or on the command line. What is and isn't established:
   layer L's router, not earlier. Background reads use their own file
   handle per I/O thread (1 by default); the forward pass's own demand
   reads run alongside, so up to two reads can be in flight.
-- **Confidence threshold:** from an isotonic calibration fitted on each
-  store's own tuning-prompt traces (`bench/fit_prefetch_calibration.py`;
-  `configs/runtime_cache.json` for base, `runtime_cache_chat.json` for
-  Chat). A run whose calibration came from another store is flagged in its
-  `load` info (`calibration_store_matches`). The Chat calibration was fitted
-  on ChatML-wrapped prompts, while `runtime.generate` feeds prompt text
-  as-is, so a Chat run with plain prompts is outside what it was fitted
-  on. In prefill, each expert's score is its
+- **Confidence threshold:** from a rank-aware isotonic calibration (one
+  map per guess rank, `predictor.offline.RankedIsotonicCalibrator`) fitted
+  on each store's own tuning-prompt traces
+  (`bench/fit_prefetch_calibration.py`; `configs/runtime_cache.json` for
+  base, `runtime_cache_chat.json` for Chat). It replaced a single map that
+  was right on average but off by up to ~12 points per rank (e.g. the 3rd
+  guess: 74% picked, 62% predicted). **This changes what the 0.05
+  threshold does:** with the rank-aware map it skips 1.9% of top-8
+  prefetches (base) instead of 8.1%, so the Phase 4+5 benchmark, which ran
+  with the single map, isn't exactly today's configuration. A run whose
+  calibration came from another store is flagged in its `load` info
+  (`calibration_store_matches`). Chat runs now get the model's own chat
+  template (`store.chat_template`, checked against transformers), the same
+  text the Chat traces were recorded with, so the Chat calibration matches
+  what the runtime feeds it. In prefill, each expert's score is its
   best probability over the prompt's tokens, and the per-token calibration
   is applied to that: a heuristic.
 - **Layer 0** has no prefetch (no layer before it). `pin_layer0` keeps all

@@ -38,7 +38,7 @@ claim (concept note, paper, video, Huawei ICT Competition, Innovation Track (Mid
 |---|---|---|
 | 0 | **Machine check.** Typed machine profile: RAM, CPU, drive, uncached SSD read speed at expert size, verified against the OS disk counters | done |
 | 1 | **Expert store.** Full Qwen1.5-MoE-A2.7B in int8 on the SSD (14.36 GB), one aligned read per expert, pinned revision, every sha256 verified | done |
-| 2 | **First full run.** All 24 layers on the 8 GB laptop at 0.70 tok/s; baselines (normal load never finishes loading; OS paging 0.41 tok/s); numpy/MindSpore backends | done; the int8-vs-bf16 reference check is pending (bf16 download) |
+| 2 | **First full run.** All 24 layers on the 8 GB laptop at 0.70 tok/s; baselines (normal load never finishes loading; OS paging 0.41 tok/s); numpy/MindSpore backends | done; int8 vs bf16: same next token at 98.2% of positions (`docs/reference-check.md`) |
 | 3 | **Expert-usage study and cache simulator.** Trace recorder, 96-prompt set, usage analysis, LRU/LFU/pinned/Belady simulator | in progress: code done and tested; base-store trace run underway; Chat-store run and analysis to follow |
 | 4 | **Virtual memory cache.** A real RAM cache of experts in the runtime, within the memory budget, with the policy chosen from Phase 3 | pending |
 | 5 | **Prediction, with an on/off switch.** Read predicted experts early, overlapping with compute; tokens must be identical with it on and off | pending |
