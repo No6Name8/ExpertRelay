@@ -11,6 +11,8 @@ readme = "README.md"
 dependencies = [
     "mindspore==2.7.1",
     "numpy",
+    # the fused int8 decode kernel (runtime.int8_linear); imported only when selected
+    "numba",
     "tokenizers",
     "psutil",
 ]
