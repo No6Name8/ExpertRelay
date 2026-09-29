@@ -160,9 +160,14 @@ class ReferenceTrace:
     logits: np.ndarray | None = None
 
 
-def hf_reference_forward(ckpt: Bf16Checkpoint, sequences: list[list[int]]) -> list[ReferenceTrace]:
+def hf_reference_forward(
+    ckpt: Bf16Checkpoint, sequences: list[list[int]], *, keep_layers: bool = True, logits: bool = True
+) -> list[ReferenceTrace]:
     """HF transformers, layer by layer, all sequences through each layer
-    before the next layer's weights are loaded."""
+    before the next layer's weights are loaded. With many sequences, set
+    keep_layers/logits False to keep only each final hidden state (the
+    per-layer states and full-vocabulary logits of 28 sequences exceed a GB);
+    lm_head_logits() then gives the logits one sequence at a time."""
     config = ckpt.config()
     rotary = Qwen2MoeRotaryEmbedding(config=config)
     traces = [ReferenceTrace() for _ in sequences]
@@ -195,8 +200,9 @@ def hf_reference_forward(ckpt: Bf16Checkpoint, sequences: list[list[int]]) -> li
             )
             for i, trace in enumerate(traces):
                 states[i] = module(states[i], **extras[i])
-                trace.hidden_after_layer.append(states[i][0].numpy().copy())
-                trace.selected_experts.append(picked[-1].numpy().copy())
+                if keep_layers:
+                    trace.hidden_after_layer.append(states[i][0].numpy().copy())
+                    trace.selected_experts.append(picked[-1].numpy().copy())
             hook.remove()
             del module
             gc.collect()
@@ -206,7 +212,8 @@ def hf_reference_forward(ckpt: Bf16Checkpoint, sequences: list[list[int]]) -> li
         norm.weight.data = ckpt.get("model.norm.weight")
         for i, trace in enumerate(traces):
             trace.final_hidden = norm(states[i])[0].numpy()
-            trace.logits = lm_head_logits(ckpt, trace.final_hidden, dtype=torch.float32)
+            if logits:
+                trace.logits = lm_head_logits(ckpt, trace.final_hidden, dtype=torch.float32)
     return traces
 
 

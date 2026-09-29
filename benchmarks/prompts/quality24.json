@@ -1,0 +1,152 @@
+{
+  "description": "Quality-check prompt set: the first 4 prompts of each category of benchmarks/prompts/phase3.json (same texts, same ids), 24 in all: English, Modern Standard Arabic, Gulf Arabic, code, math, chat-style. Used by bench/quantization_quality.py.",
+  "source": "original, written for ExpertRelay by the project; no third-party text",
+  "license": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+  "derived_from": "benchmarks/prompts/phase3.json",
+  "prompts": [
+    {
+      "id": "en_01",
+      "category": "en",
+      "language": "English",
+      "text": "The Industrial Revolution began in Britain in the late 18th century, and one of its main causes was"
+    },
+    {
+      "id": "en_02",
+      "category": "en",
+      "language": "English",
+      "text": "Photosynthesis is the process by which plants"
+    },
+    {
+      "id": "en_03",
+      "category": "en",
+      "language": "English",
+      "text": "In a small village at the foot of the mountains, there lived an old clockmaker who"
+    },
+    {
+      "id": "en_04",
+      "category": "en",
+      "language": "English",
+      "text": "The main difference between a virus and a bacterium is that"
+    },
+    {
+      "id": "ar_msa_01",
+      "category": "ar_msa",
+      "language": "Arabic (MSA)",
+      "text": "تُعدّ الطاقة الشمسية من أهم مصادر الطاقة المتجددة، إذ"
+    },
+    {
+      "id": "ar_msa_02",
+      "category": "ar_msa",
+      "language": "Arabic (MSA)",
+      "text": "كان ابن سينا طبيبًا وفيلسوفًا عاش في القرن الحادي عشر، وقد اشتهر بكتابه"
+    },
+    {
+      "id": "ar_msa_03",
+      "category": "ar_msa",
+      "language": "Arabic (MSA)",
+      "text": "يتكوّن الماء من ذرتين من الهيدروجين وذرة من الأكسجين، ويغلي عند درجة"
+    },
+    {
+      "id": "ar_msa_04",
+      "category": "ar_msa",
+      "language": "Arabic (MSA)",
+      "text": "في ظل التطور السريع للذكاء الاصطناعي، أصبحت الحاجة ماسة إلى"
+    },
+    {
+      "id": "ar_gulf_01",
+      "category": "ar_gulf",
+      "language": "Arabic (Gulf)",
+      "text": "وش رايك نطلع البحر اليوم؟ الجو وايد حلو و"
+    },
+    {
+      "id": "ar_gulf_02",
+      "category": "ar_gulf",
+      "language": "Arabic (Gulf)",
+      "text": "يا خوي، السيارة خربت علي في الطريق، وش أسوي؟"
+    },
+    {
+      "id": "ar_gulf_03",
+      "category": "ar_gulf",
+      "language": "Arabic (Gulf)",
+      "text": "أمس رحت المول مع الربع، وشفنا"
+    },
+    {
+      "id": "ar_gulf_04",
+      "category": "ar_gulf",
+      "language": "Arabic (Gulf)",
+      "text": "والله الشغل هالأيام وايد، ما عندي وقت حتى"
+    },
+    {
+      "id": "code_01",
+      "category": "code",
+      "language": "Python",
+      "text": "def binary_search(arr: list[int], target: int) -> int:\n    \"\"\"Return the index of target in sorted arr, or -1.\"\"\"\n"
+    },
+    {
+      "id": "code_02",
+      "category": "code",
+      "language": "Python",
+      "text": "import csv\n\n\ndef read_rows(path):\n    \"\"\"Read a CSV file and return a list of dicts.\"\"\"\n"
+    },
+    {
+      "id": "code_03",
+      "category": "code",
+      "language": "Python",
+      "text": "class Stack:\n    \"\"\"A simple LIFO stack.\"\"\"\n\n    def __init__(self):\n"
+    },
+    {
+      "id": "code_04",
+      "category": "code",
+      "language": "JavaScript",
+      "text": "// Debounce a function so it runs at most once every `wait` ms\nfunction debounce(fn, wait) {\n"
+    },
+    {
+      "id": "math_01",
+      "category": "math",
+      "language": "English",
+      "text": "Question: A shop sells pencils at 3 for $1.20. How much do 10 pencils cost?\nAnswer: Let's work it out step by step."
+    },
+    {
+      "id": "math_02",
+      "category": "math",
+      "language": "English",
+      "text": "Question: Solve for x: 3x + 7 = 22.\nAnswer:"
+    },
+    {
+      "id": "math_03",
+      "category": "math",
+      "language": "English",
+      "text": "Question: What is the derivative of f(x) = x^3 - 4x + 2?\nAnswer:"
+    },
+    {
+      "id": "math_04",
+      "category": "math",
+      "language": "English",
+      "text": "Question: A rectangle has a perimeter of 30 cm and a length of 9 cm. What is its area?\nAnswer: Let's think step by step."
+    },
+    {
+      "id": "chat_01",
+      "category": "chat",
+      "language": "English",
+      "text": "I have a job interview tomorrow and I'm really nervous. What should I do to prepare?"
+    },
+    {
+      "id": "chat_02",
+      "category": "chat",
+      "language": "English",
+      "text": "Can you explain what a mortgage is in simple terms?"
+    },
+    {
+      "id": "chat_03",
+      "category": "chat",
+      "language": "English",
+      "text": "What are some good books to read if I want to learn about history?"
+    },
+    {
+      "id": "chat_04",
+      "category": "chat",
+      "language": "English",
+      "text": "How do I politely decline an invitation to a party?"
+    }
+  ]
+}
