@@ -7,14 +7,21 @@ derived rather than read directly, the arithmetic is shown.
 
 Results files record the commit of the code that produced them. That commit
 is often older than the one that committed the results, and both are given
-here.
+here. Several results files hold more than one record (one per run); each
+source below names the record by its position in the file, its timestamp
+and its commit.
 
 ---
 
 ## 1. Machine
 
-Source: `benchmarks/results/machine_profile_THE-BEAST.json` (recorded at
-code commit `fb084d1`, with a dirty working tree).
+Source: `benchmarks/results/machine_profile_THE-BEAST.json`, **record 1
+of 2** (timestamp 2026-09-25T06:23:24Z, code commit `fb084d1`, with a dirty
+working tree). Record 2 is a rerun on 2026-09-28 (commit `87e5425`) that
+measured 4,027-4,210 MB/s on the same test; the table uses record 1. Its
+fresh-file read speed is NOT the speed of reading the model's experts,
+which is ~2.0 GB/s (`benchmarks/results/read_diagnosis.json`, see
+`docs/limitations.md`).
 
 | Fact | Value |
 |---|---|
@@ -38,7 +45,11 @@ Uncached SSD reads. Method: Win32 `FILE_FLAG_NO_BUFFERING`, 1 GiB test file,
 
 **Model.** Qwen1.5-MoE-A2.7B (Qwen/Qwen1.5-MoE-A2.7B), pinned to revision
 `1a758c50ecb6350748b9ce0a99d2352fd9fc11c9`. Source:
-`benchmarks/results/expert_store_build_THE-BEAST.json`.
+`benchmarks/results/expert_store_build_THE-BEAST.json`, **record 1 of 2**
+(the base model: timestamp 2026-09-26T02:14:34Z, code commit `86f796e`).
+Record 2 is the Chat model's store build (Qwen/Qwen1.5-MoE-A2.7B-Chat,
+2026-09-26T19:30:15Z); no number here comes from it. Every
+`expert_store_build_THE-BEAST.json` below means record 1.
 
 | Fact | Value | Source |
 |---|---|---|
@@ -50,8 +61,8 @@ Uncached SSD reads. Method: Win32 `FILE_FLAG_NO_BUFFERING`, 1 GiB test file,
 | Active parameters per token | ≈ 2.69 billion (derived: 1,858,701,312 resident + 96 × 8,650,752 routed-expert weights = 2,689,173,504). This matches the "A2.7B" in the model's name. | derived from `expert_store_build_THE-BEAST.json` |
 
 **Store** (int8, on the SSD). Source:
-`benchmarks/results/expert_store_build_THE-BEAST.json` (code commit
-`86f796e`; results committed in `93e5a7a`).
+`benchmarks/results/expert_store_build_THE-BEAST.json`, record 1 of 2 (code
+commit `86f796e`; results committed in `93e5a7a`).
 
 | Fact | Value |
 |---|---|
@@ -67,8 +78,9 @@ Uncached SSD reads. Method: Win32 `FILE_FLAG_NO_BUFFERING`, 1 GiB test file,
 
 ## 3. Phase 2 results: first full run
 
-Source: `benchmarks/results/phase2_baselines.json`, last record (code commit
-`5406ea5`, clean tree; timestamp 2026-09-26T12:08:35Z). Written up in
+Source: `benchmarks/results/phase2_baselines.json`, **record 2 of 2** (code
+commit `5406ea5`, clean tree; timestamp 2026-09-26T12:08:35Z). Record 1 is
+the first run (commit `90b5e9e`, 2026-09-26T11:40:56Z). Written up in
 `docs/phase2-baselines.md`.
 
 **Workload:**
