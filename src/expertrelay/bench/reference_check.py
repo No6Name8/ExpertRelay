@@ -38,6 +38,7 @@ import argparse
 import gc
 import json
 import statistics
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -72,22 +73,40 @@ LM_HEAD_BLOCK_ROWS = 8192
 
 
 class Bf16Checkpoint:
-    """Tensors from local safetensors shards, one at a time, as f32."""
+    """Tensors from local safetensors shards, one at a time, as f32.
+
+    At most MAX_OPEN_SHARDS shard files are open at once, least recently
+    used closed first. On Windows, safetensors' torch loader maps each ~4 GB
+    shard in a way that counts against the system commit limit; with every
+    shard open the full check crashed (access violation in
+    torch/storage.py) the first time it read from a 6th shard, twice, while
+    the same tensors read fine on their own. The model is read in layer
+    order, so two open shards are enough."""
+
+    MAX_OPEN_SHARDS = 2
 
     def __init__(self, directory: Path):
         self.directory = Path(directory)
         index = json.loads((self.directory / "model.safetensors.index.json").read_text())
         self._shard_of = index["weight_map"]
-        self._handles = {
-            shard: safe_open(str(self.directory / shard), framework="pt")
-            for shard in sorted(set(self._shard_of.values()))
-        }
+        self._open: OrderedDict[str, object] = OrderedDict()
+
+    def _handle(self, name: str):
+        shard = self._shard_of[name]
+        if shard in self._open:
+            self._open.move_to_end(shard)
+        else:
+            while len(self._open) >= self.MAX_OPEN_SHARDS:
+                self._open.popitem(last=False)
+                gc.collect()  # drop the closed shard's mapping now, not whenever
+            self._open[shard] = safe_open(str(self.directory / shard), framework="pt")
+        return self._open[shard]
 
     def get(self, name: str) -> torch.Tensor:
-        return self._handles[self._shard_of[name]].get_tensor(name).float()
+        return self._handle(name).get_tensor(name).float()
 
     def rows(self, name: str, start: int, stop: int) -> torch.Tensor:
-        return self._handles[self._shard_of[name]].get_slice(name)[start:stop].float()
+        return self._handle(name).get_slice(name)[start:stop].float()
 
     def config(self) -> Qwen2MoeConfig:
         config = Qwen2MoeConfig.from_pretrained(self.directory)
