@@ -1,0 +1,768 @@
+[
+  {
+    "label": "reference check vs HF transformers bf16",
+    "timestamp": "2026-09-29T12:07:49Z",
+    "git_commit": "2c265326c9cee5552d407789ec36e470c811dd1a",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 3641892864
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 55892447232
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "store": "models/qwen1.5-moe-a2.7b-int8",
+      "source": "1a758c50ecb6350748b9ce0a99d2352fd9fc11c9",
+      "reference_checkpoint": "models/hf/Qwen--Qwen1.5-MoE-A2.7B@1a758c50ecb6350748b9ce0a99d2352fd9fc11c9"
+    },
+    "config": {
+      "max_new_tokens": 32,
+      "prompts": [
+        {
+          "id": "en",
+          "language": "English",
+          "text": "The printing press, invented by Johannes Gutenberg around 1440, changed Europe because"
+        },
+        {
+          "id": "ar",
+          "language": "Arabic",
+          "text": "\u062a\u0639\u062f \u0645\u062f\u064a\u0646\u0629 \u0627\u0644\u0642\u0627\u0647\u0631\u0629 \u0645\u0646 \u0623\u0643\u0628\u0631 \u0627\u0644\u0645\u062f\u0646 \u0641\u064a \u0627\u0644\u0639\u0627\u0644\u0645 \u0627\u0644\u0639\u0631\u0628\u064a\u060c \u0648\u064a\u0639\u0648\u062f \u062a\u0627\u0631\u064a\u062e\u0647\u0627 \u0625\u0644\u0649"
+        },
+        {
+          "id": "code",
+          "language": "Python",
+          "text": "def is_prime(n: int) -> bool:\n    \"\"\"Return True if n is a prime number.\"\"\"\n"
+        },
+        {
+          "id": "math",
+          "language": "English (math)",
+          "text": "Question: A train travels 180 km in 2 hours and 15 minutes. What is its average speed in km/h?\nAnswer: Let's compute step by step."
+        }
+      ],
+      "transformers_version": "5.17.0",
+      "torch_version": "2.11.0+cpu"
+    },
+    "per_prompt": [
+      {
+        "id": "en",
+        "prompt_tokens": 18,
+        "comparison": {
+          "positions": 50,
+          "hidden_rel_error_per_layer": [
+            0.014120482629683883,
+            0.0043568386369811545,
+            0.004699250487056462,
+            0.005438292247225136,
+            0.006571561045131916,
+            0.008393749655969679,
+            0.007571336222343099,
+            0.007579655190866364,
+            0.007870010374790891,
+            0.008098265095704658,
+            0.008475086963762254,
+            0.008604365209297865,
+            0.008981590731656152,
+            0.00886566292087746,
+            0.009524393631577754,
+            0.010270937018750585,
+            0.010217749284884949,
+            0.011440505505256429,
+            0.013116602306507739,
+            0.01484717671075258,
+            0.016183475834842625,
+            0.018961995643943762,
+            0.021263992179631437,
+            0.0245538660379606
+          ],
+          "final_hidden_rel_error": 0.023907825039399467,
+          "logits_rel_error": 0.02852030490644421,
+          "top1_agreement_all_positions": 0.98,
+          "top1_agreement_generated_positions": 0.96875,
+          "generated_positions": 32,
+          "kl": {
+            "mean": 0.0016000446594829957,
+            "median": 0.0010123168141176805,
+            "max": 0.007034472200907198,
+            "sum": 0.08000223297414978,
+            "positions": 50
+          },
+          "routing_per_layer": [
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.96,
+              "mean_overlap": 0.99
+            },
+            {
+              "same_set_fraction": 0.96,
+              "mean_overlap": 0.99
+            },
+            {
+              "same_set_fraction": 0.9,
+              "mean_overlap": 0.975
+            },
+            {
+              "same_set_fraction": 0.92,
+              "mean_overlap": 0.98
+            },
+            {
+              "same_set_fraction": 1.0,
+              "mean_overlap": 1.0
+            },
+            {
+              "same_set_fraction": 0.92,
+              "mean_overlap": 0.98
+            },
+            {
+              "same_set_fraction": 0.98,
+              "mean_overlap": 0.995
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.98,
+              "mean_overlap": 0.995
+            },
+            {
+              "same_set_fraction": 0.96,
+              "mean_overlap": 0.99
+            },
+            {
+              "same_set_fraction": 0.96,
+              "mean_overlap": 0.99
+            },
+            {
+              "same_set_fraction": 0.96,
+              "mean_overlap": 0.99
+            },
+            {
+              "same_set_fraction": 0.96,
+              "mean_overlap": 0.99
+            },
+            {
+              "same_set_fraction": 0.98,
+              "mean_overlap": 0.995
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.98,
+              "mean_overlap": 0.995
+            },
+            {
+              "same_set_fraction": 0.9,
+              "mean_overlap": 0.975
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.98,
+              "mean_overlap": 0.995
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            }
+          ]
+        },
+        "lm_head": {
+          "top1_agreement_int8_lm_head": 0.98,
+          "top1_agreement_fp16_lm_head": 0.94,
+          "positions_where_lm_head_precision_changes_top1": 2,
+          "logits_rel_error_int8_lm_head": 0.02852030490644421,
+          "logits_rel_error_fp16_lm_head": 0.020778552143188602,
+          "kl_fp16_lm_head": {
+            "mean": 0.0007960840771686745,
+            "median": 0.0005144814591870735,
+            "max": 0.004191085405915606,
+            "sum": 0.03980420385843372,
+            "positions": 50
+          },
+          "positions": 50
+        }
+      },
+      {
+        "id": "ar",
+        "prompt_tokens": 18,
+        "comparison": {
+          "positions": 50,
+          "hidden_rel_error_per_layer": [
+            0.014507917082049246,
+            0.005105850745866835,
+            0.005662962451290831,
+            0.00599737038086582,
+            0.007588506254147622,
+            0.009903274214158486,
+            0.009076948057180977,
+            0.009191072309245278,
+            0.009302268531487483,
+            0.009337046519912864,
+            0.009533494645066611,
+            0.009805282386940445,
+            0.010046027038091938,
+            0.009894852523068494,
+            0.010277306501147776,
+            0.011608674979017828,
+            0.01119539273095661,
+            0.012378177866734572,
+            0.014184768489660812,
+            0.016591547121946007,
+            0.018875800037872422,
+            0.0214887476313499,
+            0.02748160285199781,
+            0.035206640349022385
+          ],
+          "final_hidden_rel_error": 0.029915842210418837,
+          "logits_rel_error": 0.03129420427090256,
+          "top1_agreement_all_positions": 0.96,
+          "top1_agreement_generated_positions": 0.9375,
+          "generated_positions": 32,
+          "kl": {
+            "mean": 0.0030012542796644644,
+            "median": 0.001953124455443323,
+            "max": 0.029886285006705187,
+            "sum": 0.1500627139832232,
+            "positions": 50
+          },
+          "routing_per_layer": [
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.96,
+              "mean_overlap": 0.99
+            },
+            {
+              "same_set_fraction": 0.92,
+              "mean_overlap": 0.98
+            },
+            {
+              "same_set_fraction": 0.98,
+              "mean_overlap": 0.995
+            },
+            {
+              "same_set_fraction": 0.9,
+              "mean_overlap": 0.975
+            },
+            {
+              "same_set_fraction": 0.96,
+              "mean_overlap": 0.99
+            },
+            {
+              "same_set_fraction": 0.9,
+              "mean_overlap": 0.975
+            },
+            {
+              "same_set_fraction": 0.92,
+              "mean_overlap": 0.98
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.98,
+              "mean_overlap": 0.995
+            },
+            {
+              "same_set_fraction": 0.92,
+              "mean_overlap": 0.98
+            },
+            {
+              "same_set_fraction": 0.92,
+              "mean_overlap": 0.98
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.96,
+              "mean_overlap": 0.99
+            },
+            {
+              "same_set_fraction": 0.96,
+              "mean_overlap": 0.99
+            },
+            {
+              "same_set_fraction": 0.9,
+              "mean_overlap": 0.975
+            },
+            {
+              "same_set_fraction": 0.96,
+              "mean_overlap": 0.99
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.9,
+              "mean_overlap": 0.975
+            },
+            {
+              "same_set_fraction": 0.92,
+              "mean_overlap": 0.98
+            },
+            {
+              "same_set_fraction": 0.86,
+              "mean_overlap": 0.965
+            },
+            {
+              "same_set_fraction": 0.88,
+              "mean_overlap": 0.97
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            },
+            {
+              "same_set_fraction": 0.94,
+              "mean_overlap": 0.985
+            }
+          ]
+        },
+        "lm_head": {
+          "top1_agreement_int8_lm_head": 0.96,
+          "top1_agreement_fp16_lm_head": 0.98,
+          "positions_where_lm_head_precision_changes_top1": 1,
+          "logits_rel_error_int8_lm_head": 0.03129420427090256,
+          "logits_rel_error_fp16_lm_head": 0.02569021333047227,
+          "kl_fp16_lm_head": {
+            "mean": 0.0018530438856463457,
+            "median": 0.0007974022910802649,
+            "max": 0.02765037110913999,
+            "sum": 0.09265219428231729,
+            "positions": 50
+          },
+          "positions": 50
+        }
+      },
+      {
+        "id": "code",
+        "prompt_tokens": 21,
+        "comparison": {
+          "positions": 53,
+          "hidden_rel_error_per_layer": [
+            0.016380059778976847,
+            0.004413034817944303,
+            0.0054381873232138755,
+            0.006320143391255148,
+            0.007707711469031992,
+            0.011342811644778489,
+            0.007341299029508822,
+            0.007361912907163804,
+            0.00763868333832433,
+            0.007741155408779071,
+            0.007970045138599877,
+            0.008086303886084775,
+            0.008752634305924689,
+            0.008839842895973445,
+            0.010332710857696345,
+            0.011334006674982473,
+            0.011980151249785433,
+            0.014352690543937537,
+            0.017286913950575532,
+            0.01971921037856126,
+            0.024349974261028126,
+            0.027839387044559773,
+            0.031060120632737106,
+            0.04045761612898592
+          ],
+          "final_hidden_rel_error": 0.035282534886989785,
+          "logits_rel_error": 0.0466848039853835,
+          "top1_agreement_all_positions": 1.0,
+          "top1_agreement_generated_positions": 1.0,
+          "generated_positions": 32,
+          "kl": {
+            "mean": 0.0006103680384539848,
+            "median": 0.00015138956519950117,
+            "max": 0.004832453825746898,
+            "sum": 0.03234950603806119,
+            "positions": 53
+          },
+          "routing_per_layer": [
+            {
+              "same_set_fraction": 0.8867924528301887,
+              "mean_overlap": 0.9716981132075472
+            },
+            {
+              "same_set_fraction": 0.9056603773584906,
+              "mean_overlap": 0.9764150943396226
+            },
+            {
+              "same_set_fraction": 0.8867924528301887,
+              "mean_overlap": 0.9716981132075472
+            },
+            {
+              "same_set_fraction": 0.8490566037735849,
+              "mean_overlap": 0.9622641509433962
+            },
+            {
+              "same_set_fraction": 0.9245283018867925,
+              "mean_overlap": 0.9811320754716981
+            },
+            {
+              "same_set_fraction": 0.9433962264150944,
+              "mean_overlap": 0.9858490566037735
+            },
+            {
+              "same_set_fraction": 0.9245283018867925,
+              "mean_overlap": 0.9811320754716981
+            },
+            {
+              "same_set_fraction": 0.9622641509433962,
+              "mean_overlap": 0.9905660377358491
+            },
+            {
+              "same_set_fraction": 0.9056603773584906,
+              "mean_overlap": 0.9764150943396226
+            },
+            {
+              "same_set_fraction": 0.9245283018867925,
+              "mean_overlap": 0.9811320754716981
+            },
+            {
+              "same_set_fraction": 0.9433962264150944,
+              "mean_overlap": 0.9858490566037735
+            },
+            {
+              "same_set_fraction": 0.9811320754716981,
+              "mean_overlap": 0.9952830188679245
+            },
+            {
+              "same_set_fraction": 0.9433962264150944,
+              "mean_overlap": 0.9858490566037735
+            },
+            {
+              "same_set_fraction": 0.9811320754716981,
+              "mean_overlap": 0.9952830188679245
+            },
+            {
+              "same_set_fraction": 0.8867924528301887,
+              "mean_overlap": 0.9716981132075472
+            },
+            {
+              "same_set_fraction": 0.9245283018867925,
+              "mean_overlap": 0.9811320754716981
+            },
+            {
+              "same_set_fraction": 0.8867924528301887,
+              "mean_overlap": 0.9669811320754716
+            },
+            {
+              "same_set_fraction": 0.9433962264150944,
+              "mean_overlap": 0.9858490566037735
+            },
+            {
+              "same_set_fraction": 0.9056603773584906,
+              "mean_overlap": 0.9764150943396226
+            },
+            {
+              "same_set_fraction": 0.9433962264150944,
+              "mean_overlap": 0.9858490566037735
+            },
+            {
+              "same_set_fraction": 0.8490566037735849,
+              "mean_overlap": 0.9622641509433962
+            },
+            {
+              "same_set_fraction": 0.8490566037735849,
+              "mean_overlap": 0.9622641509433962
+            },
+            {
+              "same_set_fraction": 0.8679245283018868,
+              "mean_overlap": 0.9669811320754716
+            },
+            {
+              "same_set_fraction": 0.8867924528301887,
+              "mean_overlap": 0.9716981132075472
+            }
+          ]
+        },
+        "lm_head": {
+          "top1_agreement_int8_lm_head": 1.0,
+          "top1_agreement_fp16_lm_head": 1.0,
+          "positions_where_lm_head_precision_changes_top1": 0,
+          "logits_rel_error_int8_lm_head": 0.0466848039853835,
+          "logits_rel_error_fp16_lm_head": 0.040313551291239494,
+          "kl_fp16_lm_head": {
+            "mean": 0.000371820934311494,
+            "median": 8.275087915284654e-05,
+            "max": 0.004375104424517546,
+            "sum": 0.01970650951850918,
+            "positions": 53
+          },
+          "positions": 53
+        }
+      },
+      {
+        "id": "math",
+        "prompt_tokens": 38,
+        "comparison": {
+          "positions": 70,
+          "hidden_rel_error_per_layer": [
+            0.015248712819339164,
+            0.006408051603167223,
+            0.006214018334447999,
+            0.006292971410475605,
+            0.00710247359303931,
+            0.010067193805835203,
+            0.008106336911483257,
+            0.008211498821654555,
+            0.008376585919553852,
+            0.008645520832933962,
+            0.009150439857356417,
+            0.009856036319362738,
+            0.01050317046837373,
+            0.011129346152088914,
+            0.011973289568388942,
+            0.013464690272300383,
+            0.015264397420374604,
+            0.01886796065725449,
+            0.021717565996936417,
+            0.02449156521688953,
+            0.027605707366826958,
+            0.03300136557130283,
+            0.03908561313108068,
+            0.051156924745234145
+          ],
+          "final_hidden_rel_error": 0.05591579756153732,
+          "logits_rel_error": 0.05922318518376129,
+          "top1_agreement_all_positions": 0.9857142857142858,
+          "top1_agreement_generated_positions": 1.0,
+          "generated_positions": 32,
+          "kl": {
+            "mean": 0.0033898699532388943,
+            "median": 0.0010488925198199924,
+            "max": 0.04010946157371334,
+            "sum": 0.2372908967267226,
+            "positions": 70
+          },
+          "routing_per_layer": [
+            {
+              "same_set_fraction": 0.9,
+              "mean_overlap": 0.975
+            },
+            {
+              "same_set_fraction": 0.9571428571428572,
+              "mean_overlap": 0.9892857142857143
+            },
+            {
+              "same_set_fraction": 0.9571428571428572,
+              "mean_overlap": 0.9892857142857143
+            },
+            {
+              "same_set_fraction": 0.9714285714285714,
+              "mean_overlap": 0.9928571428571429
+            },
+            {
+              "same_set_fraction": 0.9571428571428572,
+              "mean_overlap": 0.9892857142857143
+            },
+            {
+              "same_set_fraction": 0.9,
+              "mean_overlap": 0.975
+            },
+            {
+              "same_set_fraction": 0.9285714285714286,
+              "mean_overlap": 0.9821428571428571
+            },
+            {
+              "same_set_fraction": 0.9142857142857143,
+              "mean_overlap": 0.9785714285714285
+            },
+            {
+              "same_set_fraction": 0.9285714285714286,
+              "mean_overlap": 0.9821428571428571
+            },
+            {
+              "same_set_fraction": 0.9,
+              "mean_overlap": 0.975
+            },
+            {
+              "same_set_fraction": 0.9428571428571428,
+              "mean_overlap": 0.9857142857142858
+            },
+            {
+              "same_set_fraction": 0.9142857142857143,
+              "mean_overlap": 0.9785714285714285
+            },
+            {
+              "same_set_fraction": 0.9285714285714286,
+              "mean_overlap": 0.9821428571428571
+            },
+            {
+              "same_set_fraction": 0.9714285714285714,
+              "mean_overlap": 0.9928571428571429
+            },
+            {
+              "same_set_fraction": 1.0,
+              "mean_overlap": 1.0
+            },
+            {
+              "same_set_fraction": 0.9285714285714286,
+              "mean_overlap": 0.9821428571428571
+            },
+            {
+              "same_set_fraction": 0.9428571428571428,
+              "mean_overlap": 0.9857142857142858
+            },
+            {
+              "same_set_fraction": 0.9142857142857143,
+              "mean_overlap": 0.9785714285714285
+            },
+            {
+              "same_set_fraction": 0.9285714285714286,
+              "mean_overlap": 0.9821428571428571
+            },
+            {
+              "same_set_fraction": 0.9428571428571428,
+              "mean_overlap": 0.9857142857142858
+            },
+            {
+              "same_set_fraction": 0.9285714285714286,
+              "mean_overlap": 0.9821428571428571
+            },
+            {
+              "same_set_fraction": 0.9571428571428572,
+              "mean_overlap": 0.9892857142857143
+            },
+            {
+              "same_set_fraction": 0.9,
+              "mean_overlap": 0.9714285714285714
+            },
+            {
+              "same_set_fraction": 0.8857142857142857,
+              "mean_overlap": 0.9714285714285714
+            }
+          ]
+        },
+        "lm_head": {
+          "top1_agreement_int8_lm_head": 0.9857142857142858,
+          "top1_agreement_fp16_lm_head": 0.9857142857142858,
+          "positions_where_lm_head_precision_changes_top1": 0,
+          "logits_rel_error_int8_lm_head": 0.05922318518376129,
+          "logits_rel_error_fp16_lm_head": 0.055282878864866936,
+          "kl_fp16_lm_head": {
+            "mean": 0.0026716496602000677,
+            "median": 0.0007718806203100533,
+            "max": 0.02634115389152187,
+            "sum": 0.18701547621400474,
+            "positions": 70
+          },
+          "positions": 70
+        }
+      }
+    ],
+    "aggregate": {
+      "hidden_rel_error_per_layer_mean": [
+        0.015064293077512284,
+        0.0050709439509898785,
+        0.005503604649002292,
+        0.0060121943574554275,
+        0.00724256309033771,
+        0.009926757330185464,
+        0.008023980055129038,
+        0.0080860348072325,
+        0.008296887041039138,
+        0.008455496964332638,
+        0.00878226665119629,
+        0.009087996950421456,
+        0.009570855636011627,
+        0.009682426123002078,
+        0.010526925139702704,
+        0.011669577236262817,
+        0.012164422671500398,
+        0.014259833643295756,
+        0.016576462685920126,
+        0.018912374857037343,
+        0.021753739375142533,
+        0.025322873972789067,
+        0.029722832198861758,
+        0.03784376181530076
+      ],
+      "routing_same_set_per_layer_mean": [
+        0.9166981132075471,
+        0.9457008086253369,
+        0.9309838274932615,
+        0.9251212938005391,
+        0.9254177897574124,
+        0.9508490566037736,
+        0.9182749326145553,
+        0.9441374663072777,
+        0.9285579514824798,
+        0.9461320754716981,
+        0.9415633423180593,
+        0.9438544474393531,
+        0.9429919137466307,
+        0.9681401617250673,
+        0.9566981132075472,
+        0.9232749326145553,
+        0.9424123989218329,
+        0.9244204851752021,
+        0.9185579514824798,
+        0.9365633423180593,
+        0.9044070080862534,
+        0.9065498652291105,
+        0.9119811320754717,
+        0.9131266846361186
+      ],
+      "final_hidden_rel_error_mean": 0.03625549992458635,
+      "logits_rel_error_mean": 0.04143062458662289,
+      "top1_agreement_all_positions": 0.9820627802690582,
+      "top1_agreement_generated_positions": 0.9765625,
+      "generated_positions": 128,
+      "kl_mean": 0.0022408311646733487,
+      "kl_max": 0.04010946157371334,
+      "top1_agreement_all_positions_fp16_lm_head": 0.9775784753363229,
+      "kl_mean_fp16_lm_head": 0.0015209792998801118,
+      "positions": 223,
+      "lm_head_changes_top1_positions": 3
+    },
+    "peak_rss_mb": 5559.988224
+  }
+]
