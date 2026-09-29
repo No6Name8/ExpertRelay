@@ -26,6 +26,7 @@ docs/limitations.md.
 
 from __future__ import annotations
 
+import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -117,6 +118,41 @@ class ResidentWeights:
 ExpertWeights = dict[str, Int8Matrix]  # "gate_proj" / "up_proj" / "down_proj"
 
 
+class ReadLog:
+    """Every expert read, for finding out why reads take as long as they do.
+
+    Per read: when it started (seconds since the log was created), how long
+    it took, how long the drive had been idle before it (no read of ours in
+    flight; 0 when another read was already running), how many reads were
+    already in flight, who issued it ("demand": the forward pass waited for
+    it; "prefetch": a background thread) and the (layer, expert). "Idle"
+    only knows this process's reads. Thread-safe: I/O threads log too."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._t0 = time.perf_counter()
+        self._in_flight = 0
+        self._idle_since = self._t0
+        self.entries: list[tuple[float, float, float, int, str, int, int]] = []
+
+    def start(self) -> tuple[float, float, int]:
+        with self._lock:
+            now = time.perf_counter()
+            gap = 0.0 if self._in_flight else now - self._idle_since
+            before = self._in_flight
+            self._in_flight += 1
+            return now, gap, before
+
+    def end(self, started: tuple[float, float, int], kind: str, layer: int, expert: int) -> None:
+        with self._lock:
+            now = time.perf_counter()
+            self._in_flight -= 1
+            if self._in_flight == 0:
+                self._idle_since = now
+            t, gap, before = started
+            self.entries.append((t - self._t0, now - t, gap, before, kind, layer, expert))
+
+
 @dataclass
 class SourceStats:
     """Cumulative; the forward pass reports per-call deltas.
@@ -140,6 +176,7 @@ class SourceStats:
     prefetches_wasted: int = 0  # read in the background, evicted before any use
     prefetches_cancelled: int = 0  # queued, never started, no longer useful
     prefetches_skipped_full: int = 0  # no evictable slot at the time
+    prefetches_skipped_budget: int = 0  # over the adaptive prefetcher's read budget
 
 
 class ExpertSource(ABC):
@@ -162,10 +199,17 @@ class ExpertSource(ABC):
     def supports_prefetch(self) -> bool:
         return False
 
-    def prefetch(self, layer: int, experts: list[int], keep: list[tuple[int, int]]) -> None:  # noqa: B027
-        """Start loading `experts` of `layer` in the background, without
-        evicting the (layer, expert) keys in `keep`. A no-op for sources
-        without a cache."""
+    def prefetch(  # noqa: B027
+        self,
+        layer: int,
+        experts: list[int],
+        keep: list[tuple[int, int]],
+        max_new_reads: int | None = None,
+    ) -> None:
+        """Start loading `experts` of `layer` in the background, in order,
+        without evicting the (layer, expert) keys in `keep`, and starting at
+        most `max_new_reads` reads (experts already cached cost none). A
+        no-op for sources without a cache."""
 
     def end_layer(self, layer: int) -> None:  # noqa: B027
         """The forward pass is done with `layer`'s experts for this call."""
@@ -188,10 +232,14 @@ class UnbufferedExpertSource(ExpertSource):
         self._reader = ExpertStoreReader(store_dir).__enter__()
         self.layout = self._reader.layout
         self.stats = SourceStats()
+        self.read_log: ReadLog | None = None
 
     def load(self, layer: int, expert: int) -> ExpertWeights:
         t = time.perf_counter()
+        logged = self.read_log.start() if self.read_log else None
         raw = self._reader.read_raw(layer, expert)
+        if logged:
+            self.read_log.end(logged, "demand", layer, expert)
         self.stats.read_seconds += time.perf_counter() - t
         self.stats.loads += 1
         self.stats.demand_reads += 1

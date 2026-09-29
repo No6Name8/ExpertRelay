@@ -48,6 +48,9 @@ from expertrelay.predictor.prefetch_policy import PrefetchPolicy, load_calibrato
 from expertrelay.runtime.backends import BACKEND_NAMES, make_backend
 from expertrelay.runtime.expert_trace import ExpertTraceWriter
 from expertrelay.runtime.int8_linear import BLOCK_ROWS_PREFILL
+from expertrelay.runtime.int8_linear import KERNELS as INT8_KERNELS
+from expertrelay.runtime.int8_linear import current_kernel as current_int8_kernel
+from expertrelay.runtime.int8_linear import set_kernel as set_int8_kernel
 from expertrelay.runtime.qwen_moe import KVCache, ModelConfig, QwenMoe, StepTimings
 from expertrelay.runtime.weights import (
     EMBEDDING,
@@ -55,6 +58,7 @@ from expertrelay.runtime.weights import (
     ExpertSource,
     MmapExpertSource,
     RamExpertSource,
+    ReadLog,
     ResidentWeights,
     UnbufferedExpertSource,
 )
@@ -75,6 +79,9 @@ PROCESS_BASELINE_BYTES = 200 * 2**20
 # Importing MindSpore and running a first op: measured 195 MB on the dev
 # machine, rounded up. Only paid when the MindSpore backend is selected.
 MINDSPORE_BACKEND_BYTES = 256 * 2**20
+# numba plus the compiled fused int8 kernel: measured 83 MB on the dev
+# machine, rounded up. Only paid when the fused kernel is selected.
+FUSED_KERNEL_BYTES = 128 * 2**20
 
 
 @dataclass(frozen=True)
@@ -97,6 +104,11 @@ class RuntimeConfig:
     # None = the store decides (store.chat_template.is_chat_store): Chat stores
     # get their chat template, base stores raw text
     chat_template: bool | None = None
+    int8_kernel: str = "fused"  # runtime.int8_linear: "fused" (numba) or "blocked"
+    prefill_pipelining: bool = True  # --source cached: read a layer's experts in parallel in prefill
+    prefetch_adaptive: bool = False  # cap prefetch reads at what fits in the measured window
+    prefetch_calibration_kind: str = "rank"  # "rank" (per-rank maps) or "single"
+    log_reads: bool = False  # record every expert read (runtime.weights.ReadLog)
 
     @classmethod
     def load(cls, path: Path = DEFAULT_RUNTIME_CONFIG) -> RuntimeConfig:
@@ -116,6 +128,11 @@ class RuntimeConfig:
             pin_layer0=d.get("pin_layer0", False),
             io_threads=d.get("io_threads", 1),
             chat_template=d.get("chat_template"),
+            int8_kernel=d.get("int8_kernel", "fused"),
+            prefill_pipelining=d.get("prefill_pipelining", True),
+            prefetch_adaptive=d.get("prefetch_adaptive", False),
+            prefetch_calibration_kind=d.get("prefetch_calibration_kind", "rank"),
+            log_reads=d.get("log_reads", False),
         )
 
     def cache_slots_needed(self, config: ModelConfig) -> tuple[int, int]:
@@ -137,6 +154,7 @@ def estimate_ram_bytes(
     source: str,
     backend: str = "numpy",
     expert_cache_gb: float = 0.0,
+    int8_kernel: str = "blocked",
 ) -> int:
     """Upper-bound estimate of this process's RAM for a run, used to enforce
     the budget BEFORE loading anything. Every term is computed from real
@@ -162,6 +180,7 @@ def estimate_ram_bytes(
     return (
         PROCESS_BASELINE_BYTES
         + (MINDSPORE_BACKEND_BYTES if backend == "mindspore" else 0)
+        + (FUSED_KERNEL_BYTES if backend == "numpy" and int8_kernel == "fused" else 0)
         + resident
         + experts
         + KVCache.bytes_for(config, max_seq)
@@ -187,12 +206,19 @@ def load_model(
     if source == "cached" and rt is None:
         raise ValueError("source 'cached' needs the runtime config's cache settings")
     cache_gb = rt.expert_cache_gb if source == "cached" else 0.0
-    estimate = estimate_ram_bytes(store_dir, config, max_seq, source, choice.name, cache_gb)
+    kernel = rt.int8_kernel if rt else RuntimeConfig.int8_kernel
+    estimate = estimate_ram_bytes(store_dir, config, max_seq, source, choice.name, cache_gb, kernel)
     if budget_gb is not None:
         enforce_ram_budget(estimate, budget_gb, f"running with --source {source} --backend {choice.name}")
+    info: dict = {"source": source}
+    if choice.name == "numpy":
+        try:
+            set_int8_kernel(kernel)
+        except ImportError:  # numba missing: the blocked kernel still works
+            set_int8_kernel("blocked")
+        info["int8_kernel"] = current_int8_kernel()
     t = time.perf_counter()
     resident = ResidentWeights.load(store_dir, mmap_everything=(source == "mmap"))
-    info: dict = {"source": source}
     prefetcher = None
     if source == "cached":
         pinned, free = rt.cache_slots_needed(config)
@@ -204,7 +230,9 @@ def load_model(
             min_free_slots=free,
         )
         calibrator, provenance = (
-            load_calibrator(rt.prefetch_calibration) if rt.prefetch_calibration else (None, None)
+            load_calibrator(rt.prefetch_calibration, rt.prefetch_calibration_kind)
+            if rt.prefetch_calibration
+            else (None, None)
         )
         prefetcher = PrefetchPolicy(rt.prefetch_k, rt.prefetch_min_probability, calibrator)
         info["cache"] = {
@@ -216,6 +244,8 @@ def load_model(
             "prefetch": rt.prefetch,
             "prefetch_k": rt.prefetch_k,
             "prefetch_min_probability": rt.prefetch_min_probability,
+            "prefetch_adaptive": rt.prefetch_adaptive,
+            "prefill_pipelining": rt.prefill_pipelining,
             "calibration": provenance,
             # a calibration fitted on another store's traces is a simplification
             "calibration_store_matches": provenance is None or provenance["store"] == Path(store_dir).name,
@@ -234,6 +264,10 @@ def load_model(
     )
     model = QwenMoe(config, resident, experts, compute, prefetcher)
     model.prefetch_enabled = bool(rt and rt.prefetch and prefetcher is not None)
+    model.prefetch_adaptive = bool(rt and rt.prefetch_adaptive)
+    model.prefill_pipelining = bool(rt and rt.prefill_pipelining)
+    if rt and rt.log_reads and hasattr(experts, "read_log"):
+        experts.read_log = ReadLog()
     return model, info
 
 
@@ -260,6 +294,7 @@ class StepRecord:
     prefetch_bytes: int = 0
     prefetches_wasted: int = 0
     prefetches_cancelled: int = 0
+    prefetches_skipped_budget: int = 0
     attention_seconds: list[float] | None = None
     moe_compute_seconds: list[float] | None = None
     read_wait_seconds: list[float] | None = None
@@ -314,8 +349,10 @@ def run_prompts(
     use_template = rt.chat_template if rt.chat_template is not None else is_chat_store(store_dir)
     template = ChatTemplate.for_store(store_dir) if use_template else None
     results = []
+    log = getattr(model.experts, "read_log", None)
     for p in prompts:
         prompt_ids = tokenizer.encode(template.user_prompt(p["text"]) if template else p["text"]).ids
+        first_read = len(log.entries) if log else None
         generated, steps = generate(model, prompt_ids, rt.max_new_tokens, rt.max_seq)
         results.append(
             {
@@ -324,6 +361,7 @@ def run_prompts(
                 "generated_ids": generated,
                 "generated_text": tokenizer.decode(generated),
                 "steps": [asdict(s) for s in steps],
+                "read_log_range": [first_read, len(log.entries)] if log else None,
             }
         )
         print(f"[{source}] {p['id']}: {tokenizer.decode(generated)!r}", flush=True)
@@ -333,6 +371,8 @@ def run_prompts(
         "prompt_format": "chat_template" if template else "raw",
         "ram_available_at_start_bytes": free_at_start,
         "prompts": results,
+        # (start s, seconds, idle gap before s, reads already in flight, kind, layer, expert)
+        "read_log": [list(e) for e in log.entries] if log else None,
         "peak_rss_mb": peak_process_rss_mb(),
     }
 
@@ -365,6 +405,11 @@ def main() -> None:
     cache.add_argument("--prefetch-min-probability", type=float, default=None)
     cache.add_argument("--pin-layer0", action=argparse.BooleanOptionalAction, default=None)
     cache.add_argument("--io-threads", type=int, default=None)
+    ap.add_argument("--int8-kernel", choices=list(INT8_KERNELS), default=None)
+    ap.add_argument("--log-reads", action=argparse.BooleanOptionalAction, default=None)
+    cache.add_argument("--prefill-pipelining", action=argparse.BooleanOptionalAction, default=None)
+    cache.add_argument("--prefetch-adaptive", action=argparse.BooleanOptionalAction, default=None)
+    cache.add_argument("--calibration-kind", choices=["rank", "single"], default=None)
     ap.add_argument(
         "--chat-template",
         action=argparse.BooleanOptionalAction,
@@ -383,6 +428,11 @@ def main() -> None:
         "pin_layer0": args.pin_layer0,
         "io_threads": args.io_threads,
         "chat_template": args.chat_template,
+        "int8_kernel": args.int8_kernel,
+        "log_reads": args.log_reads,
+        "prefill_pipelining": args.prefill_pipelining,
+        "prefetch_adaptive": args.prefetch_adaptive,
+        "prefetch_calibration_kind": args.calibration_kind,
     }
     rt = replace(rt, **{k: v for k, v in overrides.items() if v is not None})
     store_dir = args.store_dir or rt.store_dir

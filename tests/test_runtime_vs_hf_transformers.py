@@ -107,7 +107,23 @@ def test_prefill_logits_match_hf(both_models):
     np.testing.assert_array_equal(logits.argmax(-1), expected.argmax(-1))
 
 
-def test_kv_cache_decode_matches_hf_full_recompute(both_models):
+@pytest.mark.parametrize("kernel", ["blocked", "fused"])
+def test_kv_cache_decode_matches_hf_full_recompute(both_models, kernel):
+    """Decode is where the kernels differ (the fused one sums in another
+    order); both must match transformers to the same tolerance."""
+    from expertrelay.runtime import int8_linear
+
+    if kernel == "fused":
+        pytest.importorskip("numba")
+    before = int8_linear.current_kernel()
+    int8_linear.set_kernel(kernel)
+    try:
+        _decode_matches_hf(both_models)
+    finally:
+        int8_linear.set_kernel(before)
+
+
+def _decode_matches_hf(both_models):
     ours, hf = both_models
     cache = KVCache(ours.c, max_seq=32)
     seq = TOKENS[:4]

@@ -25,6 +25,17 @@ a layer's router input is ready, the NEXT layer's router is applied to it
 experts start loading in the background (predictor.prefetch_policy,
 cache.expert_cache). It only decides which bytes are read early; the
 arithmetic, and so every output, is the same with it on or off.
+
+Adaptive prefetching (optional) caps the reads started per layer at what
+fits in the time before the next layer needs its experts: the measured
+window (this layer's MoE compute + the next layer's attention, from the
+last generated token) x I/O threads / the measured time per read. The
+guesses go in confidence order, so the cap drops the least likely ones.
+
+Pipelined prefill (optional): with many tokens in one call, as soon as a
+layer's router has picked its experts, all of them are queued on the
+cache's I/O threads, so they are read several at a time and overlap with
+computing the ones already loaded, instead of one after the other.
 """
 
 from __future__ import annotations
@@ -187,6 +198,7 @@ class StepTimings:
     prefetch_bytes: int = 0
     prefetches_wasted: int = 0
     prefetches_cancelled: int = 0
+    prefetches_skipped_budget: int = 0
     attention_seconds: list[float] = field(default_factory=list)
     moe_compute_seconds: list[float] = field(default_factory=list)
     read_wait_seconds: list[float] = field(default_factory=list)
@@ -210,7 +222,9 @@ _STAT_FIELDS = {
     "prefetch_bytes": "prefetch_bytes",
     "prefetches_wasted": "prefetches_wasted",
     "prefetches_cancelled": "prefetches_cancelled",
+    "prefetches_skipped_budget": "prefetches_skipped_budget",
 }
+WINDOW_EMA = 0.5  # weight of the newest token in the per-layer window estimate
 
 
 class QwenMoe:
@@ -229,6 +243,10 @@ class QwenMoe:
         self.prefetcher = prefetcher
         # The on/off switch. Safe to flip between calls: outputs don't depend on it.
         self.prefetch_enabled = prefetcher is not None
+        self.prefetch_adaptive = False
+        self.prefill_pipelining = False
+        # seconds available to hide the prefetch for layer L+1, issued at layer L
+        self._window = np.full(config.num_layers, np.nan)
 
     def _w(self, name: str):
         return self.resident[name]
@@ -300,12 +318,19 @@ class QwenMoe:
             # the NEXT layer's router applied to THIS layer's gate input. It
             # never feeds back into this forward pass's arithmetic.
             fate = self._linear(f"model.layers.{layer + 1}.mlp.gate.weight", h)
+        needed = [int(e) for e in np.unique(selected)]
+        if self.prefill_pipelining and n > 1 and self.experts.supports_prefetch:
+            # queued first, so they're read before any guess for the next layer
+            self.experts.prefetch(layer, needed, keep=[])
         if prefetch:
             choice = self.prefetcher.choose(fate)
             timings.prefetches_skipped_low_confidence += choice.skipped_low_confidence
             # this layer's experts are about to be used: keep them
             self.experts.prefetch(
-                layer + 1, choice.experts, keep=[(layer, int(e)) for e in np.unique(selected)]
+                layer + 1,
+                choice.experts,
+                keep=[(layer, e) for e in needed],
+                max_new_reads=self._read_budget(layer) if self.prefetch_adaptive and n == 1 else None,
             )
         if expert_trace is not None:
             expert_trace.layer(layer, router_logits, selected, weights, fate)
@@ -330,6 +355,21 @@ class QwenMoe:
         )
         gate = _sigmoid(self._linear(p + "shared_expert_gate.weight", h))
         return routed + gate * shared
+
+    def _read_budget(self, layer: int) -> int:
+        """Reads that fit before layer+1 needs its experts; at least 1."""
+        window = self._window[layer]
+        if np.isnan(window):
+            return self.prefetcher.top_k  # nothing measured yet (first generated token)
+        per_read = self.experts.read_seconds_estimate / max(self.experts.io_threads, 1)
+        return max(1, int(round(window / per_read)))
+
+    def _update_windows(self, timings: StepTimings) -> None:
+        att, moe = timings.attention_seconds, timings.moe_compute_seconds
+        for layer in range(len(att) - 1):
+            w = moe[layer] + att[layer + 1]
+            old = self._window[layer]
+            self._window[layer] = w if np.isnan(old) else old + WINDOW_EMA * (w - old)
 
     def forward(
         self,
@@ -384,5 +424,7 @@ class QwenMoe:
         stats1 = asdict(self.experts.stats)
         for src, dst in _STAT_FIELDS.items():
             setattr(timings, dst, stats1[src] - stats0[src])
+        if len(token_ids) == 1:
+            self._update_windows(timings)
         timings.total_seconds = time.perf_counter() - t0
         return (logits if all_logits else logits[0]), timings

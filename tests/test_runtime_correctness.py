@@ -28,6 +28,7 @@ from store_helpers import build_test_store, random_checkpoint
 
 from expertrelay.cache.expert_cache import CachedExpertSource
 from expertrelay.predictor.prefetch_policy import PrefetchPolicy
+from expertrelay.runtime import int8_linear
 from expertrelay.runtime.generate import generate, model_config
 from expertrelay.runtime.qwen_moe import KVCache, QwenMoe
 from expertrelay.runtime.weights import (
@@ -136,6 +137,18 @@ def _reference(store, prompt: list[int], new_tokens: int):
     return logits, tokens
 
 
+@pytest.fixture(params=["blocked", "fused"])
+def kernel(request):
+    """Every source uses the same int8 kernel within a test; the rule is that
+    the source, cache and prefetcher never change a bit, whichever kernel."""
+    if request.param == "fused":
+        pytest.importorskip("numba")
+    before = int8_linear.current_kernel()
+    int8_linear.set_kernel(request.param)
+    yield request.param
+    int8_linear.set_kernel(before)
+
+
 @pytest.mark.parametrize(
     ("slots", "prefetch_k", "pin_layer0", "io_threads"),
     [
@@ -146,8 +159,9 @@ def _reference(store, prompt: list[int], new_tokens: int):
     ],
 )
 @pytest.mark.parametrize("prefetch_on", [True, False])
+@pytest.mark.parametrize("adaptive_and_pipelined", [False, True])
 def test_cache_and_prefetcher_give_bit_identical_generation(
-    store, slots, prefetch_k, pin_layer0, io_threads, prefetch_on
+    store, kernel, slots, prefetch_k, pin_layer0, io_threads, prefetch_on, adaptive_and_pipelined
 ):
     prompt = [3, 9, 27, 17, 51]
     ref_logits, ref_tokens = _reference(store, prompt, 8)
@@ -155,13 +169,17 @@ def test_cache_and_prefetcher_give_bit_identical_generation(
         store, slots=slots, prefetch_k=prefetch_k, pin_layer0=pin_layer0, io_threads=io_threads
     )
     model.prefetch_enabled = prefetch_on
+    model.prefetch_adaptive = model.prefill_pipelining = adaptive_and_pipelined
     logits, _ = model.forward(np.array(prompt), KVCache(model.c, max_seq=32), all_logits=True)
     tokens, steps = generate(model, prompt, max_new_tokens=8, max_seq=32)
     model.experts.close()
     np.testing.assert_array_equal(logits, ref_logits)  # bit-identical, not "close"
     assert tokens == ref_tokens
     issued = sum(s.prefetches_issued for s in steps)
-    assert (issued > 0) == prefetch_on
+    if prefetch_on:
+        assert issued > 0
+    elif not adaptive_and_pipelined:
+        assert issued == 0  # pipelined prefill may queue a layer's own experts, if not cached yet
     for s in steps:
         uses = s.cache_hits + s.prefetch_hits + s.prefetch_waits + s.demand_reads
         assert uses == s.expert_loads
@@ -192,3 +210,17 @@ def test_per_layer_timings_cover_every_layer(store):
         assert min(s.attention_seconds + s.moe_compute_seconds + s.read_wait_seconds) >= 0
         assert sum(s.attention_seconds + s.moe_compute_seconds + s.read_wait_seconds) <= s.total_seconds
         assert sum(s.read_wait_seconds) == pytest.approx(s.expert_read_seconds)
+
+
+def test_read_budget_from_window_and_read_time():
+    from types import SimpleNamespace
+
+    from expertrelay.runtime.qwen_moe import QwenMoe
+
+    m = QwenMoe.__new__(QwenMoe)
+    m.prefetcher = SimpleNamespace(top_k=8)
+    m.experts = SimpleNamespace(read_seconds_estimate=0.006, io_threads=2)
+    m._window = np.array([np.nan, 0.009, 0.0001])
+    assert m._read_budget(0) == 8  # nothing measured yet: the full top-k
+    assert m._read_budget(1) == 3  # 9 ms / (6 ms / 2 threads)
+    assert m._read_budget(2) == 1  # at least one

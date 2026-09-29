@@ -54,10 +54,14 @@ class PrefetchPolicy:
         return PrefetchChoice([int(e) for e in order[keep]], int((~keep).sum()))
 
 
-def load_calibrator(path: Path) -> tuple[IsotonicCalibrator | RankedIsotonicCalibrator, dict]:
+def load_calibrator(
+    path: Path, kind: str = "rank"
+) -> tuple[IsotonicCalibrator | RankedIsotonicCalibrator, dict]:
     """From the last record of a bench/fit_prefetch_calibration.py results
-    file: (calibrator, where it came from). The rank-aware map when the
-    record has one, else the single map."""
+    file: (calibrator, where it came from). kind "rank": the rank-aware map
+    if the record has one, else the single map; "single": the single map."""
+    if kind not in ("rank", "single"):
+        raise ValueError(f"unknown calibration kind {kind!r}")
     records = json.loads(Path(path).read_text(encoding="utf-8"))
     d = records[-1] if isinstance(records, list) else records
     provenance = {
@@ -65,8 +69,8 @@ def load_calibrator(path: Path) -> tuple[IsotonicCalibrator | RankedIsotonicCali
         "git_commit": d.get("git_commit"),
         "timestamp": d.get("timestamp"),
         "store": (d.get("model") or {}).get("store"),
-        "kind": "rank_isotonic" if "rank_calibrator" in d else "isotonic",
+        "kind": "rank_isotonic" if kind == "rank" and "rank_calibrator" in d else "isotonic",
     }
-    if "rank_calibrator" in d:
+    if kind == "rank" and "rank_calibrator" in d:
         return RankedIsotonicCalibrator.from_dict(d["rank_calibrator"]), provenance
     return IsotonicCalibrator.from_dict(d["calibrator"]), provenance

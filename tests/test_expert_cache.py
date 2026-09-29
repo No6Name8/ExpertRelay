@@ -230,3 +230,34 @@ def test_prefetch_keeps_the_listed_experts(store, record):
     c.close()
     assert (0, 0) in c.cached_keys()
     assert (0, 1) not in c.cached_keys()
+
+
+def test_prefetch_read_budget_counts_only_new_reads(store, record):
+    c = cache(store, record, 8)
+    c.load(1, 0)
+    c.end_layer(1)
+    c.prefetch(1, [0, 2, 3, 4], keep=[], max_new_reads=2)  # (1, 0) is cached: costs nothing
+    c.close()
+    assert c.stats.prefetches_issued == 2
+    assert c.stats.prefetches_skipped_budget == 1
+    assert {(1, 0), (1, 2), (1, 3)} <= c.cached_keys()
+    assert (1, 4) not in c.cached_keys()
+
+
+def test_read_log_records_reads_with_their_idle_gap(store, record):
+    from expertrelay.runtime.weights import ReadLog
+
+    c = cache(store, record, 6)
+    c.read_log = ReadLog()
+    c.load(0, 1)
+    threading.Event().wait(0.05)  # the drive sits idle for ~50 ms
+    c.load(0, 2)
+    c.prefetch(2, [5], keep=[])
+    c.end_layer(0)
+    c.close()
+    entries = c.read_log.entries
+    kinds = [e[4] for e in entries]
+    assert kinds.count("demand") == 2 and kinds.count("prefetch") == 1
+    second = [e for e in entries if e[4] == "demand"][1]
+    assert second[2] >= 0.04  # the idle gap before it
+    assert all(e[1] > 0 for e in entries)  # every read took some time

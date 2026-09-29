@@ -44,12 +44,16 @@ from pathlib import Path
 
 import numpy as np
 
-from expertrelay.runtime.weights import ExpertSource, ExpertWeights, SourceStats, _to_matrices
+from expertrelay.runtime.weights import ExpertSource, ExpertWeights, ReadLog, SourceStats, _to_matrices
 from expertrelay.store.expert_reader import ExpertStoreReader
 from expertrelay.store.layout import parse_expert_record
 from expertrelay.store.unbuffered_io import ALIGNMENT
 
 FREE, QUEUED, LOADING, READY = range(4)
+# Starting estimate of one background read, until reads have been timed:
+# bench/read_diagnosis.py measured ~4.2 ms back to back for a store record.
+INITIAL_READ_SECONDS = 0.0045
+READ_EMA = 0.2  # weight of the newest read in the running estimate
 Key = tuple[int, int]  # (layer, expert)
 
 
@@ -108,6 +112,9 @@ class CachedExpertSource(ExpertSource):
             )
         self.capacity_bytes = n * record
         self.stats = SourceStats()
+        self.read_log: ReadLog | None = None
+        self.io_threads = io_threads
+        self._read_seconds_ema = INITIAL_READ_SECONDS
         self._pool = _aligned_pool(n * record)
         base = self._pool.ctypes.data
         self._slots = [
@@ -136,6 +143,11 @@ class CachedExpertSource(ExpertSource):
     @property
     def supports_prefetch(self) -> bool:
         return True
+
+    @property
+    def read_seconds_estimate(self) -> float:
+        """Running estimate of one background read, from the reads so far."""
+        return self._read_seconds_ema
 
     # ------------------------------------------------------------------ internal
 
@@ -199,17 +211,23 @@ class CachedExpertSource(ExpertSource):
                     if slot.state != QUEUED or slot.key != key:
                         continue  # cancelled, or the forward pass took it over
                     slot.state = LOADING
+                logged = self.read_log.start() if self.read_log else None
+                t = time.perf_counter()
                 try:
                     n = reader.read_into(key[0], key[1], slot.address)
                     err = None
                 except BaseException as e:  # handed to whoever waits for this slot
                     n, err = 0, e
+                took = time.perf_counter() - t
+                if logged:
+                    self.read_log.end(logged, "prefetch", key[0], key[1])
                 with self._lock:
                     slot.error = err
                     slot.state = READY
                     if err is None:
                         self.stats.prefetch_reads += 1
                         self.stats.prefetch_bytes += n
+                        self._read_seconds_ema += READ_EMA * (took - self._read_seconds_ema)
                     slot.done.set()
 
     # -------------------------------------------------------------- ExpertSource
@@ -256,7 +274,10 @@ class CachedExpertSource(ExpertSource):
                 slot.prefetched = False
                 self.stats.prefetch_waits += 1
         if read_here:
+            logged = self.read_log.start() if self.read_log else None
             n = self._demand_reader.read_into(layer, expert, slot.address)
+            if logged:
+                self.read_log.end(logged, "demand", layer, expert)
             with self._lock:
                 slot.state = READY
                 slot.done.set()
@@ -268,7 +289,10 @@ class CachedExpertSource(ExpertSource):
         self._current = slot
         return _to_matrices(parse_expert_record(self.layout, slot.buf))
 
-    def prefetch(self, layer: int, experts: list[int], keep: list[Key]) -> None:
+    def prefetch(
+        self, layer: int, experts: list[int], keep: list[Key], max_new_reads: int | None = None
+    ) -> None:
+        new_reads = 0
         with self._lock:
             for k in keep:
                 s = self._map.get(k)
@@ -280,6 +304,9 @@ class CachedExpertSource(ExpertSource):
                 if slot is not None:
                     self._touch(slot)
                     continue
+                if max_new_reads is not None and new_reads >= max_new_reads:
+                    self.stats.prefetches_skipped_budget += 1
+                    continue
                 slot = self._victim(take_queued=False)
                 if slot is None:
                     self.stats.prefetches_skipped_full += 1
@@ -289,6 +316,7 @@ class CachedExpertSource(ExpertSource):
                 self._map[key] = slot
                 self._touch(slot)
                 self.stats.prefetches_issued += 1
+                new_reads += 1
                 self._queue.put((slot, key))
 
     def end_layer(self, layer: int) -> None:

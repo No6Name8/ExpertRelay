@@ -68,13 +68,20 @@ def _compile_fused():
     return fused
 
 
+def _fused_kernel():
+    global _fused
+    if _fused is None:
+        _fused = _compile_fused()
+    return _fused
+
+
 def set_kernel(name: str) -> None:
     """Process-wide choice for decode-sized inputs ("blocked" or "fused")."""
-    global _kernel, _fused
+    global _kernel
     if name not in KERNELS:
         raise ValueError(f"unknown int8 kernel {name!r}; available: {', '.join(KERNELS)}")
-    if name == "fused" and _fused is None:
-        _fused = _compile_fused()
+    if name == "fused":
+        _fused_kernel()  # compile now, so a missing numba fails here, not mid-run
     _kernel = name
 
 
@@ -115,9 +122,7 @@ def int8_linear(
     if out is None:
         out = np.empty((n, out_dim), dtype=np.float32)
     if use_fused(n, kernel):
-        if _fused is None:
-            set_kernel("fused")
-        _fused(np.ascontiguousarray(x, dtype=np.float32), q, scales, out)
+        _fused_kernel()(np.ascontiguousarray(x, dtype=np.float32), q, scales, out)
         if bias is not None:
             out += bias
         return out
