@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import os
 import statistics
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -161,13 +162,27 @@ class ReferenceTrace:
 
 
 def hf_reference_forward(
-    ckpt: Bf16Checkpoint, sequences: list[list[int]], *, keep_layers: bool = True, logits: bool = True
+    ckpt: Bf16Checkpoint,
+    sequences: list[list[int]],
+    *,
+    keep_layers: bool = True,
+    logits: bool = True,
+    resume_dir: Path | None = None,
 ) -> list[ReferenceTrace]:
     """HF transformers, layer by layer, all sequences through each layer
     before the next layer's weights are loaded. With many sequences, set
     keep_layers/logits False to keep only each final hidden state (the
     per-layer states and full-vocabulary logits of 28 sequences exceed a GB);
-    lm_head_logits() then gives the logits one sequence at a time."""
+    lm_head_logits() then gives the logits one sequence at a time.
+
+    With `resume_dir` (only with keep_layers False), every sequence's hidden
+    state is saved after each layer (written to a temporary file, then
+    renamed, so a crash leaves the previous checkpoint intact), and a rerun
+    continues after the last saved layer. Each layer is a deterministic
+    function of the previous layer's states, so resuming gives the same
+    result as an uninterrupted run."""
+    if resume_dir is not None and keep_layers:
+        raise ValueError("resume_dir needs keep_layers=False (per-layer traces aren't checkpointed)")
     config = ckpt.config()
     rotary = Qwen2MoeRotaryEmbedding(config=config)
     traces = [ReferenceTrace() for _ in sequences]
@@ -192,7 +207,17 @@ def hf_reference_forward(
                     "position_embeddings": rotary(h, position_ids),
                 }
             )
-        for layer in range(config.num_hidden_layers):
+        start = 0
+        if resume_dir is not None:
+            resume_dir.mkdir(parents=True, exist_ok=True)
+            saved = _layer_checkpoints(resume_dir)
+            if saved:
+                blob = torch.load(saved[-1][1])
+                if blob["lengths"] != [len(ids) for ids in sequences]:
+                    raise SystemExit(f"{saved[-1][1]} was saved for other sequences")
+                states, start = blob["states"], blob["layer"] + 1
+                print(f"  reference resumes after layer {start}", flush=True)
+        for layer in range(start, config.num_hidden_layers):
             module = _load_layer(ckpt, config, layer)
             picked: list[torch.Tensor] = []
             hook = module.mlp.gate.register_forward_hook(
@@ -206,6 +231,8 @@ def hf_reference_forward(
             hook.remove()
             del module
             gc.collect()
+            if resume_dir is not None:
+                _save_layer_checkpoint(resume_dir, layer, sequences, states)
             print(f"  reference layer {layer + 1}/{config.num_hidden_layers}", flush=True)
 
         norm = Qwen2MoeRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -215,6 +242,21 @@ def hf_reference_forward(
             if logits:
                 trace.logits = lm_head_logits(ckpt, trace.final_hidden, dtype=torch.float32)
     return traces
+
+
+def _layer_checkpoints(directory: Path) -> list[tuple[int, Path]]:
+    return sorted((int(p.stem.rsplit("_", 1)[1]), p) for p in directory.glob("after_layer_*.pt"))
+
+
+def _save_layer_checkpoint(
+    directory: Path, layer: int, sequences: list[list[int]], states: list[torch.Tensor]
+) -> None:
+    tmp = directory / "partial.pt.tmp"
+    torch.save({"layer": layer, "lengths": [len(ids) for ids in sequences], "states": states}, tmp)
+    os.replace(tmp, directory / f"after_layer_{layer:02d}.pt")
+    for other_layer, path in _layer_checkpoints(directory):
+        if other_layer < layer:
+            path.unlink()
 
 
 def lm_head_logits(ckpt: Bf16Checkpoint, hidden: np.ndarray, dtype: torch.dtype) -> np.ndarray:

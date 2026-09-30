@@ -100,6 +100,44 @@ def test_layer_by_layer_driver_reproduces_transformers_full_forward(tiny):
     assert all(s.shape == (len(SEQUENCE), HF_CONFIG["num_experts_per_tok"]) for s in ref.selected_experts)
 
 
+def test_reference_resumes_after_a_crash_with_identical_result(tiny, tmp_path, monkeypatch):
+    import expertrelay.bench.reference_check as rc
+
+    ckpt_dir, _ = tiny
+    sequences = [SEQUENCE, SEQUENCE[:7]]
+    uninterrupted = rc.hf_reference_forward(
+        Bf16Checkpoint(ckpt_dir), sequences, keep_layers=False, logits=False
+    )
+
+    load_layer = rc._load_layer
+
+    def crash_at_layer_2(ckpt, config, layer):
+        if layer == 2:
+            raise KeyboardInterrupt
+        return load_layer(ckpt, config, layer)
+
+    monkeypatch.setattr(rc, "_load_layer", crash_at_layer_2)
+    with pytest.raises(KeyboardInterrupt):
+        rc.hf_reference_forward(
+            Bf16Checkpoint(ckpt_dir), sequences, keep_layers=False, logits=False, resume_dir=tmp_path
+        )
+    assert [p.name for p in tmp_path.iterdir()] == ["after_layer_01.pt"]
+    loaded: list[int] = []
+    monkeypatch.setattr(
+        rc, "_load_layer", lambda c, cfg, layer: loaded.append(layer) or load_layer(c, cfg, layer)
+    )
+    resumed = rc.hf_reference_forward(
+        Bf16Checkpoint(ckpt_dir), sequences, keep_layers=False, logits=False, resume_dir=tmp_path
+    )
+    assert loaded == [2]
+    for a, b in zip(uninterrupted, resumed, strict=True):
+        np.testing.assert_array_equal(a.final_hidden, b.final_hidden)
+    with pytest.raises(SystemExit):  # a checkpoint for other sequences is never used
+        rc.hf_reference_forward(
+            Bf16Checkpoint(ckpt_dir), [SEQUENCE], keep_layers=False, logits=False, resume_dir=tmp_path
+        )
+
+
 def _ours(store_dir) -> tuple[ForwardTrace, np.ndarray]:
     model = QwenMoe(
         model_config(store_dir), ResidentWeights.load(store_dir), UnbufferedExpertSource(store_dir)
