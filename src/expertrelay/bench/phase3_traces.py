@@ -3,6 +3,11 @@
     python -m expertrelay.bench.phase3_traces                       # base store (configs/phase3.json)
     python -m expertrelay.bench.phase3_traces --store-dir models/qwen1.5-moe-a2.7b-chat-int8
     python -m expertrelay.bench.phase3_traces --estimate-only
+    python -m expertrelay.bench.phase3_traces --store-dir models/qwen1.5-moe-a2.7b-chat-int4g128-gptq --prompts-per-category 4
+
+--prompts-per-category N keeps the first N prompts of each category (a
+short trace, e.g. to fit one store's prefetch calibration; the tuning /
+test split of bench.fit_prefetch_calibration still gets odd / even ids).
 
 One trace file per prompt, in models/traces/<store directory name>/ (see
 docs/trace-format.md), plus a small <prompt id>.done.json per finished
@@ -91,6 +96,7 @@ def main() -> None:
     ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     ap.add_argument("--store-dir", type=Path, default=None, help="default: store_dir from the config")
     ap.add_argument("--estimate-only", action="store_true")
+    ap.add_argument("--prompts-per-category", type=int, default=None, help="default: all")
     args = ap.parse_args()
 
     rt = RuntimeConfig.load(args.config)
@@ -98,7 +104,14 @@ def main() -> None:
         rt = replace(rt, store_dir=args.store_dir.resolve())
     source = json.loads((rt.store_dir / "store.json").read_text())["source"]
     fmt = prompt_format_for(source)
-    prompts = round_robin(json.loads(rt.prompts_file.read_text(encoding="utf-8"))["prompts"])
+    prompts = json.loads(rt.prompts_file.read_text(encoding="utf-8"))["prompts"]
+    if args.prompts_per_category is not None:
+        prompts = [
+            p
+            for i, p in enumerate(prompts)
+            if sum(q["category"] == p["category"] for q in prompts[:i]) < args.prompts_per_category
+        ]
+    prompts = round_robin(prompts)
     tokenizer = load_tokenizer(rt.store_dir)
     encoded = {p["id"]: tokenizer.encode(format_prompt(p["text"], fmt, rt.store_dir)).ids for p in prompts}
     too_long = [pid for pid, ids in encoded.items() if len(ids) + rt.max_new_tokens > rt.max_seq]
@@ -123,6 +136,7 @@ def main() -> None:
         config={
             **{k: str(v) if isinstance(v, Path) else v for k, v in asdict(rt).items()},
             "prompt_format": fmt,
+            "prompts_per_category": args.prompts_per_category,
             "trace_dir": out_dir.relative_to(REPO_ROOT).as_posix(),
         },
         machine=collect_machine_profile(measure_disk=False),

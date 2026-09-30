@@ -1,0 +1,15 @@
+{
+  "memory_budget_gb": 3.6,
+  "max_seq": 128,
+  "max_new_tokens": 32,
+  "prompts_file": "benchmarks/prompts/phase2.json",
+  "store_dir": "models/qwen1.5-moe-a2.7b-chat-int4g128-gptq",
+  "expert_cache_gb": 1.66,
+  "prefetch": true,
+  "prefetch_k": 8,
+  "prefetch_min_probability": 0.05,
+  "prefetch_calibration": "benchmarks/results/prefetch_calibration_qwen1.5-moe-a2.7b-chat-int4g128-gptq.json",
+  "pin_layer0": false,
+  "io_threads": 2,
+  "prefetch_adaptive": true
+}
