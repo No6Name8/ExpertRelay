@@ -176,7 +176,7 @@ def main() -> None:
             fit = None
             if s["cache"]:
                 fit = fit_cache(replace(rt_cache, store_dir=s["store"]), CACHE_GB)
-                s["args"] = [*s["args"], "--cache-gb", f"{fit['used_gb']:.6f}"]
+                s["args"] = [*s["args"], "--cache-gb", f"{fit['used_gb']:.9f}"]
             r = run_one(s, CACHE_CONFIG if s["cache"] else DEFAULT_RUNTIME_CONFIG, TIMEOUT_S)
             r["round"], r["cache_fit"] = rnd, fit
             r["store"] = Path(s["store"]).name

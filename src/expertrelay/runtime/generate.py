@@ -169,7 +169,7 @@ def estimate_ram_bytes(
         "mmap": 0,  # page cache, not process-private memory
         "ram": config.num_layers * config.num_experts * record,
         # the slot pool, allocated once; reads go straight into slots
-        "cached": slots_for(int(expert_cache_gb * 1e9), record) * record,
+        "cached": slots_for(round(expert_cache_gb * 1e9), record) * record,
     }[source]
     widest = max(config.hidden_size, max(e.shape[-1] for e in entries if len(e.shape) == 2))
     tallest = max(e.shape[0] for e in entries if len(e.shape) == 2 and e.name != EMBEDDING)
@@ -224,7 +224,9 @@ def load_model(
         pinned, free = rt.cache_slots_needed(config)
         experts = CachedExpertSource(
             store_dir,
-            capacity_bytes=int(cache_gb * 1e9),
+            capacity_bytes=round(
+                cache_gb * 1e9
+            ),  # to the byte: int() would truncate 1.2486574 GB into one slot less
             pinned=[(0, e) for e in range(pinned)],
             io_threads=rt.io_threads,
             min_free_slots=free,
