@@ -581,3 +581,56 @@ weights (demo store) are fetched over this machine's ~0.5-2 MB/s link, so
 each takes many hours. `store/download_checkpoint.py` runs with
 `HF_HUB_DISABLE_XET=1`: the default Xet backend stalled after ~730 MB, with
 no bytes written for 5+ minutes, while plain HTTP resumed immediately.
+
+## Deleted local data (2026-09-30), and how to get it back exactly
+
+To free disk space, three local data sets under `models/` (not in git)
+were deleted. Everything measured with them stays in the repo; what
+follows is how to recreate each one and check that it is the same.
+
+**1. The original bf16 checkpoint**,
+`models/hf/Qwen--Qwen1.5-MoE-A2.7B@1a758c50ecb6350748b9ce0a99d2352fd9fc11c9/`
+(26.7 GB). Needed by `bench/reference_check.py`,
+`bench/quantization_quality.py` and `store/build_int4_store.py`. Re-download:
+
+    HF_HUB_DISABLE_XET=1 python -m expertrelay.store.download_checkpoint --repo-id Qwen/Qwen1.5-MoE-A2.7B --revision 1a758c50ecb6350748b9ce0a99d2352fd9fc11c9
+
+(it fetches `*.safetensors` and `*.json`). Before deletion every file was
+hashed; the shards matched the Hub's LFS sha256 for this revision:
+
+| file | bytes | sha256 |
+|---|---|---|
+| model-00001-of-00008.safetensors | 3999614664 | 44f12f5b3d4e8eebeb55fa733e9dbbd7e119c9bf1502251638223e0dc2a926f0 |
+| model-00002-of-00008.safetensors | 3999385424 | 20a99873170c32cd91b489a10ab9408ca73d3f20cf5f57370cf31699aaf2d266 |
+| model-00003-of-00008.safetensors | 3988628968 | e0b7cd920fc98f99e1d83ea856e73f451029ed16dba7ff83b4b839e77ba2d229 |
+| model-00004-of-00008.safetensors | 3999386088 | e2be2af186e5c042e2246947d13640df5bd4ed59512932573996aca155b8e9a9 |
+| model-00005-of-00008.safetensors | 3988629648 | 3b75e01d4df9de74823e146a2c1e8826c80f838dcc7d1bd3bf376b68b8a527da |
+| model-00006-of-00008.safetensors | 3999386104 | c2fc223a88189b3950a4b737fe4c75ae40f792f2e7b30df159afe3cf392589d3 |
+| model-00007-of-00008.safetensors | 3988629648 | 88b206c85ee08b9704d2ddb5dcf15b91e5d750884c767c29a93fc91781cb7267 |
+| model-00008-of-00008.safetensors | 668484400 | 996c5057f123db509d3c40c97d6e65dac35eb9ffc71f3ac324a0a531da43e112 |
+| model.safetensors.index.json | 416452 | ece1b223efe32f4349d0dfa2a522249ac10bcb89369ed25b222c35175cd90b53 |
+| config.json | 919 | d0b1cd8f35beccb75211c06940da3274ea986363792ab0ececb60d4ec03dd8c6 |
+| configuration.json | 81 | ab2de9d4e89491b006a99106908418797762e736d95c9f96ab1a8d376f73c458 |
+| generation_config.json | 144 | c5b514da80320749cd57c739c26ddfe44834976109739779a477b60ccde29fb2 |
+| tokenizer.json | 7028015 | f7c9b2dba4a296b1aa76c16a34b8225c0c118978400d4bb66bff0902d702f5b8 |
+| tokenizer_config.json | 1290 | d30087dd5f3fe386f6d6c029a449798f118ff0afde8824c4d618eb9523d931e6 |
+| vocab.json | 2776833 | ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910 |
+
+**2 and 3. The int4 expert stores**, `models/qwen1.5-moe-a2.7b-int4g128/`
+and `models/qwen1.5-moe-a2.7b-int4g64/` (they failed the quality bar,
+`docs/int4-experts.md`). Their `store.json` and `experts_index.json`,
+with the sha256 of every expert record, are in `benchmarks/stores/`;
+their build records, quality and speed results in `benchmarks/results/`
+(`int4_store_build.json`, `quantization_quality.json`,
+`int4_benchmark.json`). Only their own files were freed: `resident.bin`,
+`resident_index.json` and `tokenizer.json` were hard links to the int8
+store's, which is unchanged. Rebuild (needs the bf16 checkpoint above and
+`models/qwen1.5-moe-a2.7b-int8/`):
+
+    python -m expertrelay.store.build_int4_store --group-size 128
+    python -m expertrelay.store.build_int4_store --group-size 64
+
+The build is deterministic round-to-nearest from the same bf16 bytes, so a
+rebuild should reproduce every record; compare each record's sha256 in the
+new `experts_index.json` with the committed one in `benchmarks/stores/`.
+That rebuild-and-compare has not been done.
