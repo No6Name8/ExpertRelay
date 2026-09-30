@@ -36,8 +36,11 @@ Pass rule (fixed before any result): overall top-1 agreement vs bf16 Chat
 
 ## In progress
 
-- **1. Downloads + hash verification** (running in the background, log
-  `logs/b3_download.log`; ~2.3 MB/s, GPTQ first, then bf16 Chat).
+- **1a. GPTQ download: done and verified** (2026-09-30): all 9 files match
+  the Hub's hashes (`benchmarks/results/checkpoint_verification.json`).
+- **1b. bf16 Chat download: PAUSED at the user's request** (2026-09-30), at
+  4.67 GB of 28.64 GB (two partial shards in `.cache/huggingface/download`;
+  they resume, nothing is lost). Resume with the bf16 commands below.
   Outputs: `models/hf/<repo>@<commit>/`, verification in
   `benchmarks/results/checkpoint_verification.json`.
 
