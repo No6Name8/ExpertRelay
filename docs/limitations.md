@@ -286,6 +286,24 @@ In addition:
   int8 97.8%, int4-g128 87.7%, int4-g64 89.6%; mean KL 0.0027 vs 0.19 /
   0.17 nats. Arabic suffers most (Gulf Arabic 81.1% / 83.2%, MSA 84.8% /
   89.2%); code least (93.2% / 95.9%).
+- **Speed: +45%.** Same session, VS Code and browsers closed, Phase 2
+  prompts, 1.25 GB cache for both: best int8 setup 2.41 tok/s (cache +
+  adaptive prefetch), best int4-g64 setup 3.49 tok/s. Expert bytes read
+  per token: 668-676 MB (int8, cached) vs 302-358 MB (int4); the cache
+  holds 143 int8 experts vs 271 int4 ones. Compute per token rises
+  0.09 -> 0.12-0.14 s (unpacking 4-bit values). Cache and prefetch on vs
+  off gave identical tokens within each precision, in all 12 runs.
+- **Verdict so far:** round-to-nearest int4 buys +45% speed at a cost of
+  8 points of next-token agreement (13 for Arabic). Not good enough to
+  use; the next candidates are GPTQ/AWQ-style 4-bit, or int4 only for
+  the least-used experts.
+- **The int4 speed runs used the base int8 store's prefetch calibration**
+  (flagged in each run's `calibration_store_matches`); int4 routing
+  differs slightly, so its adaptive prefetch is somewhat mis-calibrated.
+- **Cache size was one expert short** in the Phase 4+5, Step B and B2
+  benchmarks: the size was passed with 6 decimals (1.248657 GB), so the
+  cache held 143 int8 experts instead of 144 (and 271 int4 ones instead
+  of 272). Under 1%; fixed for future runs.
 - **Sample:** 28 prompts (4 Phase 2 + 4 per category), 1,478 positions,
   each prompt continued by the int8 model and every model scored on those
   same positions (teacher forcing). Per-step agreement, not identity of
