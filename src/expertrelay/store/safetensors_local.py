@@ -49,7 +49,8 @@ class LocalCheckpoint:
         return entry
 
     def get(self, name: str) -> np.ndarray:
-        """The tensor as float32 (bf16 upcast exactly), a fresh array."""
+        """The tensor as a fresh array: bf16 upcast to float32 exactly, other dtypes
+        (GPTQ's int32 / float16) as stored."""
         mm, data_start, header = self._shard(self.weight_map[name])
         e = header[name]
         start, end = e["data_offsets"]

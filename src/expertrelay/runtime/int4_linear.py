@@ -1,6 +1,12 @@
 """y = x @ W_hat^T for packed int4 weights with float16 group scales
-(store.int4: symmetric, two values per byte, value + 8, even column in
-the low 4 bits).
+(store.int4: two values per byte, value + 8, even column in the low 4
+bits; values -8..7).
+
+GPTQ's zero points: the kernel's fixed "- 8" IS the zero point of every
+group in the GPTQ release this repo converts (symmetric GPTQ, zero point
+(maxq + 1) / 2 = 8; store.gptq checks every group of every expert and
+refuses any other value), so GPTQ weights run through this kernel
+unchanged, with no per-group zero array to read.
 
 Two paths, like runtime.int8_linear, chosen by the same process-wide
 setting (int8_linear.set_kernel / use_fused):

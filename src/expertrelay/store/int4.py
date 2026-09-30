@@ -39,6 +39,29 @@ Details that matter for reproducing it:
   - Packing: two values per byte, value + 8 in 1..15; the even input column
     in the low 4 bits, the odd column in the high 4 bits.
 
+Three quantizers write this same encoding (value = nibble - 8, times the
+group's float16 scale); the layout's `quantizer` field says which one made
+a store:
+  rtn_absmax7    the method above (Step B2's base-model stores).
+  rtn_gptq_grid  round-to-nearest on GPTQ's own symmetric 4-bit grid, so a
+                 GPTQ release can be compared with RTN on identical codes,
+                 scales and group size; only GPTQ's error compensation is
+                 missing. The grid (Frantar et al., arXiv:2210.17323,
+                 reference implementation quant.py, Quantizer.find_params
+                 with sym=True, bits=4): per group, xmax = max(|min|, max)
+                 over the group with min <= 0 <= max forced; if the group
+                 has a negative weight, xmin = -xmax, otherwise xmin = 0;
+                 an all-zero group gets xmin, xmax = -1, 1;
+                 scale = (xmax - xmin) / 15, zero point 8,
+                 code = clamp(round(w / scale) + 8, 0, 15), value = code - 8 in
+                 -8..7. As in GPTQ, a group with no negative weight gets
+                 scale = xmax / 15 and its largest weights clip at 7 * scale
+                 (quirk reproduced on purpose). Deviation, recorded in
+                 docs/limitations.md: codes are computed with the STORED
+                 float16 scale, while GPTQ rounds with the float32 scale
+                 and stores float16 afterwards.
+  gptq           converted losslessly from a GPTQ release (store.gptq).
+
 Record (one per expert, like the int8 store's, store.layout):
   [gate packed][up packed][down packed][gate scales f16][up scales f16][down scales f16][zero pad]
 padded to a multiple of 4096 bytes, so one unbuffered read loads one expert.
@@ -53,7 +76,14 @@ import numpy as np
 from expertrelay.store.unbuffered_io import ALIGNMENT, align_up
 
 INT4_MAX = 7
+# The encoding's id, fixed by the Step B2 stores; `quantizer` tells how the values were chosen.
 FORMAT = "int4_groupwise_symmetric_rtn"
+QUANTIZER_RTN_ABSMAX7 = "rtn_absmax7"
+QUANTIZER_RTN_GPTQ_GRID = "rtn_gptq_grid"
+QUANTIZER_GPTQ = "gptq"
+QUANTIZERS = (QUANTIZER_RTN_ABSMAX7, QUANTIZER_RTN_GPTQ_GRID, QUANTIZER_GPTQ)
+GPTQ_MAXQ = 15
+GPTQ_ZERO = 8
 
 
 def quantize_groupwise_int4(w: np.ndarray, group: int) -> tuple[np.ndarray, np.ndarray]:
@@ -76,8 +106,26 @@ def quantize_groupwise_int4(w: np.ndarray, group: int) -> tuple[np.ndarray, np.n
     return q.reshape(rows, cols), scales
 
 
+def quantize_groupwise_int4_gptq_grid(w: np.ndarray, group: int) -> tuple[np.ndarray, np.ndarray]:
+    """[rows, cols] float -> (int8 values in -8..7, float16 scales [rows, cols // group]),
+    on GPTQ's symmetric grid without error compensation (module docstring)."""
+    w = np.asarray(w, dtype=np.float32)
+    rows, cols = w.shape
+    if cols % group or group % 2:
+        raise ValueError(f"{cols} columns don't split into groups of {group} (even)")
+    g = w.reshape(rows, cols // group, group)
+    xmin = np.minimum(g.min(axis=2), 0)
+    xmax = np.maximum(np.maximum(g.max(axis=2), 0), np.abs(xmin))
+    xmin = np.where(xmin < 0, -xmax, xmin)
+    empty = (xmin == 0) & (xmax == 0)
+    xmin, xmax = np.where(empty, -1, xmin), np.where(empty, 1, xmax)
+    scales = ((xmax - xmin) / GPTQ_MAXQ).astype(np.float16)
+    codes = np.clip(np.rint(g / scales.astype(np.float32)[:, :, None]) + GPTQ_ZERO, 0, GPTQ_MAXQ)
+    return (codes - GPTQ_ZERO).astype(np.int8).reshape(rows, cols), scales
+
+
 def pack_int4(q: np.ndarray) -> np.ndarray:
-    """int8 values in -7..7 [rows, cols] -> uint8 [rows, cols // 2]."""
+    """int8 values in -8..7 [rows, cols] -> uint8 [rows, cols // 2]."""
     u = (q.astype(np.int16) + 8).astype(np.uint8)
     return (u[:, 0::2] | (u[:, 1::2] << 4)).astype(np.uint8)
 
@@ -120,9 +168,14 @@ class Int4RecordLayout:
 
     matrices: tuple[tuple[str, tuple[int, int]], ...]
     group_size: int
+    quantizer: str = QUANTIZER_RTN_ABSMAX7
 
     @classmethod
-    def from_config(cls, config: dict, group_size: int) -> Int4RecordLayout:
+    def from_config(
+        cls, config: dict, group_size: int, quantizer: str = QUANTIZER_RTN_ABSMAX7
+    ) -> Int4RecordLayout:
+        if quantizer not in QUANTIZERS:
+            raise ValueError(f"unknown quantizer {quantizer!r}")
         inter, hidden = config["moe_intermediate_size"], config["hidden_size"]
         return cls(
             matrices=(
@@ -131,6 +184,7 @@ class Int4RecordLayout:
                 ("down_proj", (hidden, inter)),
             ),
             group_size=group_size,
+            quantizer=quantizer,
         )
 
     @property
@@ -168,6 +222,7 @@ class Int4RecordLayout:
     def to_dict(self) -> dict:
         return {
             "format": FORMAT,
+            "quantizer": self.quantizer,
             "group_size": self.group_size,
             "matrices": [{"name": n, "shape": list(s)} for n, s in self.matrices],
             "weights_bytes": self.weights_bytes,
@@ -182,7 +237,10 @@ class Int4RecordLayout:
         if d.get("format") != FORMAT:
             raise ValueError(f"not an int4 layout: {d.get('format')!r}")
         return cls(
-            matrices=tuple((m["name"], tuple(m["shape"])) for m in d["matrices"]), group_size=d["group_size"]
+            matrices=tuple((m["name"], tuple(m["shape"])) for m in d["matrices"]),
+            group_size=d["group_size"],
+            # the Step B2 stores predate the field; rtn_absmax7 is what made them
+            quantizer=d.get("quantizer", QUANTIZER_RTN_ABSMAX7),
         )
 
 

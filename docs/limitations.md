@@ -314,6 +314,29 @@ In addition:
   drop at any time; the builder's own allocations stay small. The estimate
   doesn't count mapped file pages.
 
+## GPTQ int4 on the Chat model (Step B3, in progress)
+
+Progress and outputs: `docs/b3-progress.md`. Results will go in
+`docs/gptq-int4.md`.
+
+- **Only the routed experts come from the GPTQ release**
+  (Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4 @ 81b132a). The release also
+  quantizes attention and the shared expert. Those stay int8, taken from
+  bf16 Chat, exactly as in the int8 Chat store. So this measures GPTQ
+  experts, not the whole GPTQ model.
+- **The conversion supports exactly what this release uses:** symmetric,
+  zero point 8 in every group, g_idx = i // 128 (desc_act off), and zero
+  expert biases. `store.gptq` checks all of this for every matrix and
+  refuses anything else. It does not approximate. There are no per-group
+  zero points or input permutation in the store format or the kernel,
+  because this release doesn't need them. Another GPTQ release that does
+  would be refused.
+- **The RTN comparison store uses GPTQ's own grid** (values −8..7, scale
+  2·max/15, group 128), not Step B2's −7..7 grid. That way it differs from
+  the GPTQ store only by GPTQ's error compensation. One deviation from
+  GPTQ's rounding: codes are computed with the stored float16 scale, while
+  GPTQ rounds with the float32 scale and stores float16 afterwards.
+
 ## Faster compute and what it changed (Step B)
 
 `docs/stepb-benchmark.md` (`bench/stepb_benchmark.py`) and
