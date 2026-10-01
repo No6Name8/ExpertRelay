@@ -264,5 +264,97 @@
       }
     },
     "peak_rss_mb": 3929.31328
+  },
+  {
+    "label": "int4 expert store build (rtn_gptq_grid, group size 128)",
+    "timestamp": "2026-10-01T01:36:39Z",
+    "git_commit": "6b6e529c39e5062a3b78510d755f26556bbf3741",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 3764109312
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 58462715904
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "source_repo": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+      "revision": "ec052fda178e241c7c443468d2fa1db6618996be",
+      "store": "qwen1.5-moe-a2.7b-chat-int4g128-rtn"
+    },
+    "config": {
+      "group_size": 128,
+      "quantizer": "rtn_gptq_grid",
+      "bf16_checkpoint": "models/hf/Qwen--Qwen1.5-MoE-A2.7B-Chat@ec052fda178e241c7c443468d2fa1db6618996be",
+      "gptq_checkpoint": null,
+      "resident_from": "qwen1.5-moe-a2.7b-chat-int8"
+    },
+    "summary": {
+      "store": "qwen1.5-moe-a2.7b-chat-int4g128-rtn",
+      "record_size": 4460544,
+      "weights_bytes": 4325376,
+      "scales_bytes": 135168,
+      "experts_bin_bytes": 6423183360,
+      "records_verified": 1440,
+      "bad_records": [],
+      "build_seconds": 737.2752132000169,
+      "verify_seconds": 10.895659700006945,
+      "resume_check_seconds": 5.2400020649656653e-05,
+      "records_resumed": 0,
+      "shared_files": {
+        "resident.bin": "hardlink",
+        "resident_index.json": "hardlink",
+        "tokenizer.json": "hardlink",
+        "tokenizer_config.json": "hardlink"
+      },
+      "quant_error": {
+        "experts": 1440,
+        "rel_fro_error_mean": 0.11128914845155155,
+        "rel_fro_error_median": 0.11115976122602189,
+        "rel_fro_error_max": 0.1166245491912019,
+        "worst_expert": [
+          3,
+          33
+        ],
+        "max_abs_error_over_scale": 0.5032437442075997
+      },
+      "int8_for_comparison": {
+        "record_size": 8671232,
+        "experts_bin_bytes": 12486574080,
+        "quant_error": {
+          "experts": 1440,
+          "rel_fro_error_mean": 0.008299174627137244,
+          "rel_fro_error_median": 0.008272153756247774,
+          "rel_fro_error_max": 0.010283791087989876,
+          "worst_expert": [
+            3,
+            33
+          ],
+          "max_abs_error_over_scale": 0.500001900365605
+        }
+      }
+    },
+    "peak_rss_mb": 3875.557376
   }
 ]

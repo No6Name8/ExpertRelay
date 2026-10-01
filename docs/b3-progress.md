@@ -50,9 +50,15 @@ Pass rule (fixed before any result): overall top-1 agreement vs bf16 Chat
 - **4 (check). Conversion vs independent GPTQ formula:** 144 matrices of 48
   sampled experts bit-identical (`benchmarks/results/gptq_conversion_check.json`).
 
+- **3. RTN int4 Chat store (GPTQ grid, g128)** (2026-10-01):
+  `models/qwen1.5-moe-a2.7b-chat-int4g128-rtn`, 1440/1440 verified, same
+  record size. Weight error vs bf16: RTN 11.1% mean, GPTQ 12.3% (GPTQ
+  minimizes output error, not weight error).
+
 ## In progress
 
-- **3. RTN int4 Chat store (GPTQ grid, g128).**
+- **5. Quality** (`python -m expertrelay.bench.gptq_quality`, log
+  `logs/b3_quality.log`, work files `models/work/gptq_quality/`).
 
 ## Next (each command resumes if rerun)
 
