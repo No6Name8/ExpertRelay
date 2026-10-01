@@ -43,9 +43,16 @@ Pass rule (fixed before any result): overall top-1 agreement vs bf16 Chat
   Hub's hashes (`benchmarks/results/checkpoint_verification.json`).
   59 GB free afterwards.
 
+- **2. GPTQ int4 Chat store** (2026-10-01): `models/qwen1.5-moe-a2.7b-chat-int4g128-gptq`,
+  1440/1440 records sha256-verified, record 4,460,544 bytes (51.4% of int8).
+  Build record: `benchmarks/results/int4_store_build.json`; metadata:
+  `benchmarks/stores/qwen1.5-moe-a2.7b-chat-int4g128-gptq/`.
+- **4 (check). Conversion vs independent GPTQ formula:** 144 matrices of 48
+  sampled experts bit-identical (`benchmarks/results/gptq_conversion_check.json`).
+
 ## In progress
 
-- **2. GPTQ int4 Chat store build.**
+- **3. RTN int4 Chat store (GPTQ grid, g128).**
 
 ## Next (each command resumes if rerun)
 
