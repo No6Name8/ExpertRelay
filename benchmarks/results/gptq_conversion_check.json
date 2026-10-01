@@ -1,0 +1,1636 @@
+[
+  {
+    "label": "GPTQ store vs independent GPTQ dequantization (sampled experts)",
+    "timestamp": "2026-10-01T01:36:11Z",
+    "git_commit": "962e11579faa8bec46df30ef4d5f285ad34c8cc4",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 3841241088
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 58463047680
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "store": "qwen1.5-moe-a2.7b-chat-int4g128-gptq",
+      "gptq_repo": "Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4",
+      "gptq_revision": "81b132adfae58e03b96ae1ed1f0d578d0cc4d09a"
+    },
+    "config": {
+      "samples": 48
+    },
+    "summary": {
+      "matrices_checked": 144,
+      "experts_checked": 48,
+      "all_identical": true,
+      "rows": [
+        {
+          "layer": 0,
+          "expert": 0,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 0,
+          "expert": 0,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 0,
+          "expert": 0,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 0,
+          "expert": 29,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 0,
+          "expert": 29,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 0,
+          "expert": 29,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 0,
+          "expert": 59,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 0,
+          "expert": 59,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 0,
+          "expert": 59,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 1,
+          "expert": 24,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 1,
+          "expert": 24,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 1,
+          "expert": 24,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 2,
+          "expert": 9,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 2,
+          "expert": 9,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 2,
+          "expert": 9,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 2,
+          "expert": 33,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 2,
+          "expert": 33,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 2,
+          "expert": 33,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 13,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 13,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 13,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 16,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 16,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 16,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 24,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 24,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 24,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 28,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 28,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 3,
+          "expert": 28,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 4,
+          "expert": 47,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 4,
+          "expert": 47,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 4,
+          "expert": 47,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 4,
+          "expert": 48,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 4,
+          "expert": 48,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 4,
+          "expert": 48,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 5,
+          "expert": 2,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 5,
+          "expert": 2,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 5,
+          "expert": 2,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 7,
+          "expert": 0,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 7,
+          "expert": 0,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 7,
+          "expert": 0,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 7,
+          "expert": 29,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 7,
+          "expert": 29,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 7,
+          "expert": 29,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 8,
+          "expert": 35,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 8,
+          "expert": 35,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 8,
+          "expert": 35,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 8,
+          "expert": 52,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 8,
+          "expert": 52,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 8,
+          "expert": 52,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 8,
+          "expert": 55,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 8,
+          "expert": 55,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 8,
+          "expert": 55,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 9,
+          "expert": 39,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 9,
+          "expert": 39,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 9,
+          "expert": 39,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 10,
+          "expert": 23,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 10,
+          "expert": 23,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 10,
+          "expert": 23,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 10,
+          "expert": 37,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 10,
+          "expert": 37,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 10,
+          "expert": 37,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 10,
+          "expert": 49,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 10,
+          "expert": 49,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 10,
+          "expert": 49,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 11,
+          "expert": 18,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 11,
+          "expert": 18,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 11,
+          "expert": 18,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 12,
+          "expert": 6,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 12,
+          "expert": 6,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 12,
+          "expert": 6,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 12,
+          "expert": 15,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 12,
+          "expert": 15,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 12,
+          "expert": 15,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 13,
+          "expert": 10,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 13,
+          "expert": 10,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 13,
+          "expert": 10,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 13,
+          "expert": 51,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 13,
+          "expert": 51,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 13,
+          "expert": 51,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 14,
+          "expert": 23,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 14,
+          "expert": 23,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 14,
+          "expert": 23,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 14,
+          "expert": 51,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 14,
+          "expert": 51,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 14,
+          "expert": 51,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 15,
+          "expert": 8,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 15,
+          "expert": 8,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 15,
+          "expert": 8,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 16,
+          "expert": 8,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 16,
+          "expert": 8,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 16,
+          "expert": 8,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 16,
+          "expert": 18,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 16,
+          "expert": 18,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 16,
+          "expert": 18,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 16,
+          "expert": 37,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 16,
+          "expert": 37,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 16,
+          "expert": 37,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 17,
+          "expert": 15,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 17,
+          "expert": 15,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 17,
+          "expert": 15,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 17,
+          "expert": 29,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 17,
+          "expert": 29,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 17,
+          "expert": 29,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 17,
+          "expert": 49,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 17,
+          "expert": 49,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 17,
+          "expert": 49,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 18,
+          "expert": 12,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 18,
+          "expert": 12,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 18,
+          "expert": 12,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 18,
+          "expert": 45,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 18,
+          "expert": 45,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 18,
+          "expert": 45,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 18,
+          "expert": 53,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 18,
+          "expert": 53,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 18,
+          "expert": 53,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 19,
+          "expert": 8,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 19,
+          "expert": 8,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 19,
+          "expert": 8,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 19,
+          "expert": 56,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 19,
+          "expert": 56,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 19,
+          "expert": 56,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 20,
+          "expert": 34,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 20,
+          "expert": 34,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 20,
+          "expert": 34,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 20,
+          "expert": 53,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 20,
+          "expert": 53,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 20,
+          "expert": 53,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 21,
+          "expert": 8,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 21,
+          "expert": 8,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 21,
+          "expert": 8,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 21,
+          "expert": 53,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 21,
+          "expert": 53,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 21,
+          "expert": 53,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 23,
+          "expert": 0,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 23,
+          "expert": 0,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 23,
+          "expert": 0,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 23,
+          "expert": 23,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 23,
+          "expert": 23,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 23,
+          "expert": 23,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 23,
+          "expert": 59,
+          "matrix": "gate_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 23,
+          "expert": 59,
+          "matrix": "up_proj",
+          "shape": [
+            1408,
+            2048
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        },
+        {
+          "layer": 23,
+          "expert": 59,
+          "matrix": "down_proj",
+          "shape": [
+            2048,
+            1408
+          ],
+          "identical": true,
+          "max_abs_diff": 0.0
+        }
+      ]
+    },
+    "peak_rss_mb": 376.782848
+  }
+]
