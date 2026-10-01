@@ -67,7 +67,11 @@ Pass rule (fixed before any result): overall top-1 agreement vs bf16 Chat
 ## In progress
 
 - **6a. GPTQ short trace** (24 prompts: 4 per category of phase3.json, 128
-  tokens) for its own prefetch calibration, then the fit.
+  tokens) for its own prefetch calibration, then the fit. PAUSED at the
+  user's request (2026-10-01) with 12 of 24 prompts finished (each saved
+  as `models/traces/qwen1.5-moe-a2.7b-chat-int4g128-gptq/<id>.done.json`);
+  rerunning the trace command skips them. Report code
+  (`bench/gptq_report.py`) is committed; the doc waits for the speed run.
 
 ## Next (each command resumes if rerun)
 
