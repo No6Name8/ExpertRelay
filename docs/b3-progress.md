@@ -55,10 +55,19 @@ Pass rule (fixed before any result): overall top-1 agreement vs bf16 Chat
   record size. Weight error vs bf16: RTN 11.1% mean, GPTQ 12.3% (GPTQ
   minimizes output error, not weight error).
 
+- **5. Quality** (2026-10-01): `benchmarks/results/gptq_quality.json`
+  (2010 positions, 28 prompts, Chat template, vs bf16 Chat). Top-1 overall:
+  int8 98.5% PASS, RTN 90.1% FAIL, GPTQ 91.5% FAIL (every GPTQ category
+  >= 90%, worst math 90.2%; fails on the 96% overall bar). The first
+  process crashed (exit 139, access violation) as the bf16 reference
+  started, after all 84 of our hidden-state files were saved; the rerun
+  resumed from those files (logs `logs/b3_quality.log`, `_2.log`), so the
+  record's peak RSS covers only the second process.
+
 ## In progress
 
-- **5. Quality** (`python -m expertrelay.bench.gptq_quality`, log
-  `logs/b3_quality.log`, work files `models/work/gptq_quality/`).
+- **6a. GPTQ short trace** (24 prompts: 4 per category of phase3.json, 128
+  tokens) for its own prefetch calibration, then the fit.
 
 ## Next (each command resumes if rerun)
 
