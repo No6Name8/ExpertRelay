@@ -68,7 +68,11 @@ def check(store: Path, gptq_dir: Path, samples: int, seed: int) -> dict:
         layout = reader.layout
         cfg = json.loads((store / "store.json").read_text())["source"]["config"]
         for layer, expert in sample_experts(cfg["num_hidden_layers"], cfg["num_experts"], samples, seed):
-            parsed = parse_expert_record(layout, reader.read_raw(layer, expert))
+            # copies: views into the reader's buffer must not outlive it (BufferError on close)
+            parsed = {
+                n: (packed.copy(), scales.copy())
+                for n, (packed, scales) in parse_expert_record(layout, reader.read_raw(layer, expert)).items()
+            }
             for name, _ in layout.matrices:
                 packed, scales = parsed[name]
                 ours = dequantize_groupwise_int4(packed, scales, layout.group_size)
@@ -86,7 +90,6 @@ def check(store: Path, gptq_dir: Path, samples: int, seed: int) -> dict:
                         "max_abs_diff": float(np.abs(ref - ours).max()) if ref.shape == ours.shape else None,
                     }
                 )
-            del parsed
     return {
         "matrices_checked": len(rows),
         "experts_checked": len({(r["layer"], r["expert"]) for r in rows}),
