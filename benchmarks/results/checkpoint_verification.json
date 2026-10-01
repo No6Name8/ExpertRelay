@@ -102,5 +102,145 @@
     ],
     "bad": [],
     "missing": []
+  },
+  {
+    "label": "checkpoint verification Qwen/Qwen1.5-MoE-A2.7B-Chat",
+    "timestamp": "2026-10-01T01:20:45Z",
+    "git_commit": "86fe12647d71064949cf9b2b741c266e75128aea",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 2588823552
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 62606983168
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "repo_id": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+      "revision": "ec052fda178e241c7c443468d2fa1db6618996be"
+    },
+    "config": {
+      "patterns": [
+        "*.safetensors",
+        "*.json"
+      ]
+    },
+    "repo_id": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+    "revision": "ec052fda178e241c7c443468d2fa1db6618996be",
+    "files": [
+      {
+        "file": "config.json",
+        "bytes": 920,
+        "sha256": "b3e9fc1ad643d12f6536dee80a66c5ea045b571856165a598252720b6f2c553e",
+        "hub_id_matches": true
+      },
+      {
+        "file": "configuration.json",
+        "bytes": 38,
+        "sha256": "f625873f5df26193fae3ff45d3054667f5a9e91d644156add3310f258c495383",
+        "hub_id_matches": true
+      },
+      {
+        "file": "generation_config.json",
+        "bytes": 248,
+        "sha256": "bb1ace90ba308b9e8b3c823849aca96c3428773c715b38493ebcd9ccef4c6cac",
+        "hub_id_matches": true
+      },
+      {
+        "file": "model-00001-of-00008.safetensors",
+        "bytes": 3999614664,
+        "sha256": "a51a84c031e0f6c8808bc284106c488ab3db6069a3f6f5a231be1e963206d020",
+        "hub_id_matches": true
+      },
+      {
+        "file": "model-00002-of-00008.safetensors",
+        "bytes": 3999385424,
+        "sha256": "02a9f530c526ac09e5d26cdece113d62b030ebc6f137ea69cd2754bea1287121",
+        "hub_id_matches": true
+      },
+      {
+        "file": "model-00003-of-00008.safetensors",
+        "bytes": 3988628968,
+        "sha256": "200116fdf90ea17c2dae53594a87b9efbbe199e4c4e487fb25aba9c65e674112",
+        "hub_id_matches": true
+      },
+      {
+        "file": "model-00004-of-00008.safetensors",
+        "bytes": 3999386088,
+        "sha256": "41296f5c77188a4182c87f9bc5958222897ed5fe1bde6912755df050f1222b8d",
+        "hub_id_matches": true
+      },
+      {
+        "file": "model-00005-of-00008.safetensors",
+        "bytes": 3988629648,
+        "sha256": "a613a2c68f18630beb1eb681627d34110cec36a615a35c4d7f35f72e0df5b2e4",
+        "hub_id_matches": true
+      },
+      {
+        "file": "model-00006-of-00008.safetensors",
+        "bytes": 3999386104,
+        "sha256": "44de056d0f2c4375685ec7545a987c20d59cd8ee75c1802e04a11e7dcd7a84f1",
+        "hub_id_matches": true
+      },
+      {
+        "file": "model-00007-of-00008.safetensors",
+        "bytes": 3988629648,
+        "sha256": "fbc95c8fc0842c425168c21e933629cde22fc156ef9b4af927ad2787fe4d33a1",
+        "hub_id_matches": true
+      },
+      {
+        "file": "model-00008-of-00008.safetensors",
+        "bytes": 668484400,
+        "sha256": "9a5e51c0a101292c249032382f20d912677e1c0c4b5b0c78e951450fedb820ee",
+        "hub_id_matches": true
+      },
+      {
+        "file": "model.safetensors.index.json",
+        "bytes": 416452,
+        "sha256": "ece1b223efe32f4349d0dfa2a522249ac10bcb89369ed25b222c35175cd90b53",
+        "hub_id_matches": true
+      },
+      {
+        "file": "tokenizer.json",
+        "bytes": 7028015,
+        "sha256": "f7c9b2dba4a296b1aa76c16a34b8225c0c118978400d4bb66bff0902d702f5b8",
+        "hub_id_matches": true
+      },
+      {
+        "file": "tokenizer_config.json",
+        "bytes": 1289,
+        "sha256": "3ec7934124b5e81aaa9c0977b95299b8ca3911b91bf8114494023fbbb22a515f",
+        "hub_id_matches": true
+      },
+      {
+        "file": "vocab.json",
+        "bytes": 2776833,
+        "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+        "hub_id_matches": true
+      }
+    ],
+    "bad": [],
+    "missing": []
   }
 ]

@@ -34,15 +34,18 @@ Pass rule (fixed before any result): overall top-1 agreement vs bf16 Chat
   AutoGPTQ `qlinear_cuda_old.py` (pack: `zeros -= 1`; forward:
   `zeros = zeros + 1`).
 
-## In progress
+## Done (step 1)
 
 - **1a. GPTQ download: done and verified** (2026-09-30): all 9 files match
   the Hub's hashes (`benchmarks/results/checkpoint_verification.json`).
-- **1b. bf16 Chat download: PAUSED at the user's request** (2026-09-30), at
-  4.67 GB of 28.64 GB (two partial shards in `.cache/huggingface/download`;
-  they resume, nothing is lost). Resume with the bf16 commands below.
-  Outputs: `models/hf/<repo>@<commit>/`, verification in
-  `benchmarks/results/checkpoint_verification.json`.
+- **1b. bf16 Chat download: done and verified** (2026-10-01; paused once
+  at the user's request and resumed without loss): all 15 files match the
+  Hub's hashes (`benchmarks/results/checkpoint_verification.json`).
+  59 GB free afterwards.
+
+## In progress
+
+- **2. GPTQ int4 Chat store build.**
 
 ## Next (each command resumes if rerun)
 
