@@ -118,6 +118,7 @@ def _portable(cmd: list[str]) -> list[str]:
 
 
 def _run(cmd: list[str]) -> float:
+    GGUF_DIR.mkdir(parents=True, exist_ok=True)
     print("$ " + " ".join(_portable(cmd)), flush=True)
     t = time.perf_counter()
     subprocess.run(cmd, check=True, cwd=REPO_ROOT)
