@@ -1,0 +1,8 @@
+{
+  "memory_budget_gb": 3.6,
+  "max_seq": 128,
+  "max_new_tokens": 64,
+  "prompts_file": "benchmarks/prompts/quality24.json",
+  "store_dir": "models/qwen1.5-moe-a2.7b-chat-int8",
+  "prefetch_calibration": "benchmarks/results/prefetch_calibration_qwen1.5-moe-a2.7b-chat-int8.json"
+}
