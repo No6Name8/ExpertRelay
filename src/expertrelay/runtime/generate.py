@@ -33,6 +33,7 @@ import argparse
 import json
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
@@ -44,6 +45,7 @@ from expertrelay.cache.expert_cache import CachedExpertSource, slots_for
 from expertrelay.manager.backend_selection import BackendChoice, select_backend
 from expertrelay.manager.profile import collect_machine_profile, device_read_bytes, measure_memory
 from expertrelay.memory_budget import enforce_ram_budget
+from expertrelay.paths import MODELS_ROOT
 from expertrelay.predictor.prefetch_policy import PrefetchPolicy, load_calibrator
 from expertrelay.runtime.backends import BACKEND_NAMES, make_backend
 from expertrelay.runtime.expert_trace import ExpertTraceWriter
@@ -67,6 +69,7 @@ from expertrelay.store.layout import read_resident_index
 from expertrelay.store.tokenizer import load_tokenizer
 
 DEFAULT_RUNTIME_CONFIG = REPO_ROOT / "configs" / "runtime.json"
+DECISIONS_DIR = MODELS_ROOT / "work" / "manager"  # --auto runs without --json-out save their decisions here
 SOURCES: dict[str, type[ExpertSource]] = {
     "unbuffered": UnbufferedExpertSource,
     "mmap": MmapExpertSource,
@@ -221,37 +224,7 @@ def load_model(
     resident = ResidentWeights.load(store_dir, mmap_everything=(source == "mmap"))
     prefetcher = None
     if source == "cached":
-        pinned, free = rt.cache_slots_needed(config)
-        experts = CachedExpertSource(
-            store_dir,
-            capacity_bytes=round(
-                cache_gb * 1e9
-            ),  # to the byte: int() would truncate 1.2486574 GB into one slot less
-            pinned=[(0, e) for e in range(pinned)],
-            io_threads=rt.io_threads,
-            min_free_slots=free,
-        )
-        calibrator, provenance = (
-            load_calibrator(rt.prefetch_calibration, rt.prefetch_calibration_kind)
-            if rt.prefetch_calibration
-            else (None, None)
-        )
-        prefetcher = PrefetchPolicy(rt.prefetch_k, rt.prefetch_min_probability, calibrator)
-        info["cache"] = {
-            "budget_gb": cache_gb,
-            "slots": experts.num_slots,
-            "bytes": experts.capacity_bytes,
-            "pinned_layer0": rt.pin_layer0,
-            "io_threads": rt.io_threads,
-            "prefetch": rt.prefetch,
-            "prefetch_k": rt.prefetch_k,
-            "prefetch_min_probability": rt.prefetch_min_probability,
-            "prefetch_adaptive": rt.prefetch_adaptive,
-            "prefill_pipelining": rt.prefill_pipelining,
-            "calibration": provenance,
-            # a calibration fitted on another store's traces is a simplification
-            "calibration_store_matches": provenance is None or provenance["store"] == Path(store_dir).name,
-        }
+        experts, prefetcher, info["cache"] = make_cached_source(store_dir, rt, config)
     else:
         experts = SOURCES[source](store_dir)
     compute = make_backend(choice.name, choice.device)
@@ -265,12 +238,56 @@ def load_model(
         }
     )
     model = QwenMoe(config, resident, experts, compute, prefetcher)
+    configure_prefetch(model, rt, prefetcher)
+    return model, info
+
+
+def make_cached_source(
+    store_dir: Path, rt: RuntimeConfig, config: ModelConfig
+) -> tuple[CachedExpertSource, PrefetchPolicy, dict]:
+    """The expert cache and prefetch policy `rt` describes, and their record."""
+    pinned, free = rt.cache_slots_needed(config)
+    experts = CachedExpertSource(
+        store_dir,
+        # to the byte: int() would truncate 1.2486574 GB into one slot less
+        capacity_bytes=round(rt.expert_cache_gb * 1e9),
+        pinned=[(0, e) for e in range(pinned)],
+        io_threads=rt.io_threads,
+        min_free_slots=free,
+    )
+    calibrator, provenance = (
+        load_calibrator(rt.prefetch_calibration, rt.prefetch_calibration_kind)
+        if rt.prefetch_calibration
+        else (None, None)
+    )
+    prefetcher = PrefetchPolicy(rt.prefetch_k, rt.prefetch_min_probability, calibrator)
+    info = {
+        "budget_gb": rt.expert_cache_gb,
+        "slots": experts.num_slots,
+        "bytes": experts.capacity_bytes,
+        "pinned_layer0": rt.pin_layer0,
+        "io_threads": rt.io_threads,
+        "prefetch": rt.prefetch,
+        "prefetch_k": rt.prefetch_k,
+        "prefetch_min_probability": rt.prefetch_min_probability,
+        "prefetch_adaptive": rt.prefetch_adaptive,
+        "prefill_pipelining": rt.prefill_pipelining,
+        "calibration": provenance,
+        # a calibration fitted on another store's traces is a simplification
+        "calibration_store_matches": provenance is None or provenance["store"] == Path(store_dir).name,
+    }
+    if rt.log_reads:
+        experts.read_log = ReadLog()
+    return experts, prefetcher, info
+
+
+def configure_prefetch(model: QwenMoe, rt: RuntimeConfig | None, prefetcher: PrefetchPolicy | None) -> None:
+    model.prefetcher = prefetcher
     model.prefetch_enabled = bool(rt and rt.prefetch and prefetcher is not None)
     model.prefetch_adaptive = bool(rt and rt.prefetch_adaptive)
     model.prefill_pipelining = bool(rt and rt.prefill_pipelining)
-    if rt and rt.log_reads and hasattr(experts, "read_log"):
-        experts.read_log = ReadLog()
-    return model, info
+    if rt and rt.log_reads and hasattr(model.experts, "read_log") and model.experts.read_log is None:
+        model.experts.read_log = ReadLog()
 
 
 @dataclass
@@ -315,9 +332,12 @@ def generate(
     max_new_tokens: int,
     max_seq: int,
     expert_trace: ExpertTraceWriter | None = None,
+    between_tokens: Callable[[], None] | None = None,
 ) -> tuple[list[int], list[StepRecord]]:
     """Greedy, fixed length. With `expert_trace`, every forward call's router
-    decisions are recorded (runtime.expert_trace); outputs are unchanged."""
+    decisions are recorded (runtime.expert_trace); outputs are unchanged.
+    `between_tokens` runs after every forward call, before the next: where
+    the live memory budget resizes the cache (runtime.auto.LiveBudget)."""
     cache = KVCache(model.c, max_seq)
     steps: list[StepRecord] = []
     generated: list[int] = []
@@ -333,6 +353,8 @@ def generate(
         nxt = int(np.argmax(logits))
         generated.append(nxt)
         feed = [nxt]
+        if between_tokens is not None:
+            between_tokens()
     return generated, steps
 
 
@@ -343,10 +365,30 @@ def run_prompts(
     prompts: list[dict],
     budget_gb: float | None,
     backend: BackendChoice | None = None,
+    auto: bool = False,
+    fast: bool = False,
+    budget_file: Path | None = None,
 ) -> dict:
-    """Load once, generate for every prompt, return everything as plain data."""
+    """Load once, generate for every prompt, return everything as plain data.
+    auto: the Manager chooses source, cache, prefetch, I/O threads, pinning
+    and backend (runtime.auto); `source` and rt's cache settings are then
+    ignored. budget_file: a memory budget (GB) that may change while
+    running; the cache is resized between tokens (runtime.auto.LiveBudget)."""
+    # runtime.auto builds on this module, so it's imported here, when used
+    from expertrelay.runtime.auto import LiveBudget, auto_load, store_facts
+
     free_at_start = measure_memory().available_bytes
-    model, info = load_model(store_dir, source, rt.max_seq, budget_gb, backend, rt)
+    decisions = None
+    if auto:
+        model, info, decisions, store_dir, rt = auto_load(store_dir, rt, budget_gb, fast)
+        source = info["source"]
+        print(decisions.summary(), flush=True)
+    else:
+        model, info = load_model(store_dir, source, rt.max_seq, budget_gb, backend, rt)
+    live = None
+    if budget_file is not None and isinstance(model.experts, CachedExpertSource):
+        facts = store_facts(store_dir, rt, model.backend.name)
+        live = LiveBudget(model, facts, measure_memory().total_bytes, budget_file)
     tokenizer = load_tokenizer(store_dir)
     use_template = rt.chat_template if rt.chat_template is not None else is_chat_store(store_dir)
     template = ChatTemplate.for_store(store_dir) if use_template else None
@@ -355,7 +397,7 @@ def run_prompts(
     for p in prompts:
         prompt_ids = tokenizer.encode(template.user_prompt(p["text"]) if template else p["text"]).ids
         first_read = len(log.entries) if log else None
-        generated, steps = generate(model, prompt_ids, rt.max_new_tokens, rt.max_seq)
+        generated, steps = generate(model, prompt_ids, rt.max_new_tokens, rt.max_seq, between_tokens=live)
         results.append(
             {
                 "id": p["id"],
@@ -370,6 +412,9 @@ def run_prompts(
     model.experts.close()
     return {
         "load": info,
+        "store_dir": Path(store_dir).name,
+        "manager": decisions.to_dict() if decisions else None,
+        "budget_events": live.events if live else None,
         "prompt_format": "chat_template" if template else "raw",
         "ram_available_at_start_bytes": free_at_start,
         "prompts": results,
@@ -390,6 +435,24 @@ def main() -> None:
         choices=["auto", *BACKEND_NAMES],
         default="auto",
         help="compute backend; auto = the Manager chooses from this machine's profile",
+    )
+    ap.add_argument(
+        "--auto",
+        action="store_true",
+        help="the Manager measures this machine and chooses source, cache, prefetch, I/O threads, pinning "
+        "and backend (runtime.auto); cache/prefetch options are then not allowed",
+    )
+    ap.add_argument(
+        "--fast", action="store_true", help="with --auto: GPTQ int4 experts (prints their quality cost)"
+    )
+    ap.add_argument(
+        "--budget-file",
+        type=Path,
+        default=None,
+        help="a file holding a memory budget in GB; edit it while running and the cache is resized between tokens",
+    )
+    ap.add_argument(
+        "--memory-budget-gb", type=float, default=None, help="override the config's memory budget"
     )
     ap.add_argument("--prompt", default=None)
     ap.add_argument("--all-prompts", action="store_true", help="run every prompt in the config's prompt set")
@@ -420,8 +483,15 @@ def main() -> None:
     )
     args = ap.parse_args()
 
+    hand_set = ("cache_gb", "prefetch", "prefetch_k", "prefetch_min_probability", "pin_layer0", "io_threads",
+                "prefetch_adaptive", "calibration_kind")  # fmt: skip
+    if args.auto and any(getattr(args, k) is not None for k in hand_set):
+        ap.error("--auto chooses the cache and prefetch settings; don't set them by hand")
+    if args.fast and not args.auto:
+        ap.error("--fast needs --auto")
     rt = RuntimeConfig.load(args.config)
     overrides = {
+        "memory_budget_gb": args.memory_budget_gb,
         "max_new_tokens": args.max_new_tokens,
         "expert_cache_gb": args.cache_gb,
         "prefetch": args.prefetch,
@@ -449,8 +519,21 @@ def main() -> None:
         None if args.backend == "auto" else BackendChoice(args.backend, None, "chosen on the command line")
     )
     out = run_prompts(
-        store_dir, args.source, rt, prompts, None if args.no_budget else rt.memory_budget_gb, backend
+        store_dir,
+        args.source,
+        rt,
+        prompts,
+        None if args.no_budget else rt.memory_budget_gb,
+        backend,
+        auto=args.auto,
+        fast=args.fast,
+        budget_file=args.budget_file,
     )
+    if args.auto and not args.json_out:  # the decision record is saved with every run
+        DECISIONS_DIR.mkdir(parents=True, exist_ok=True)
+        saved = DECISIONS_DIR / f"decisions-{time.strftime('%Y%m%d-%H%M%S')}.json"
+        saved.write_text(json.dumps(out["manager"], indent=1), encoding="utf-8")
+        print(f"decision record: {saved}")
     if args.json_out:
         args.json_out.write_text(json.dumps(out, indent=1, ensure_ascii=False), encoding="utf-8")
     for p in out["prompts"]:

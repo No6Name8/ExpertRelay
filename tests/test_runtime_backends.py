@@ -153,6 +153,8 @@ def test_backend_independent_modules_never_load_a_backend():
         "expertrelay.predictor.prefetch_policy",
         "expertrelay.manager.profile",
         "expertrelay.manager.backend_selection",
+        "expertrelay.manager.probe",
+        "expertrelay.manager.policy",
     ]
     code = (
         "import sys\n"

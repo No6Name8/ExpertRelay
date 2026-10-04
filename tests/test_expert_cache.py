@@ -261,3 +261,59 @@ def test_read_log_records_reads_with_their_idle_gap(store, record):
     second = [e for e in entries if e[4] == "demand"][1]
     assert second[2] >= 0.04  # the idle gap before it
     assert all(e[1] > 0 for e in entries)  # every read took some time
+
+
+def test_resize_shrinks_keeping_the_most_recent_experts(store, record):
+    c = cache(store, record, 6)
+    for e in range(5):
+        c.load(0, e)
+    c.end_layer(0)
+    assert c.resize(3 * record) == 3 and c.capacity_bytes == 3 * record
+    assert c.cached_keys() == {(0, 2), (0, 3), (0, 4)}  # the least recently used went first
+    hits = c.stats.cache_hits
+    w = c.load(0, 4)
+    assert c.stats.cache_hits == hits + 1
+    with ExpertStoreReader(store) as r:
+        ref = r.read(0, 4)
+        for m in w:
+            np.testing.assert_array_equal(w[m].q, ref.q[m])
+    del w
+    c.end_layer(0)
+    c.close()
+
+
+def test_resize_grows_and_new_slots_are_used(store, record):
+    c = cache(store, record, 2)
+    assert c.resize(5 * record) == 5
+    for e in range(5):
+        c.load(1, e)
+    c.end_layer(1)
+    assert len(c.cached_keys()) == 5 and c.stats.demand_reads == 5
+    c.close()
+
+
+def test_resize_keeps_pinned_and_refuses_too_small(store, record):
+    c = cache(store, record, 6, pinned=[(0, 0), (0, 1)], min_free_slots=2)
+    for e in range(2, 6):
+        c.load(1, e)
+    c.end_layer(1)
+    with pytest.raises(CacheTooSmall):
+        c.resize(3 * record)
+    assert c.num_slots == 6  # unchanged after a refusal
+    assert c.resize(4 * record) == 4
+    assert {(0, 0), (0, 1)} <= c.cached_keys()
+    c.close()
+
+
+def test_resize_cancels_queued_and_waits_for_in_flight_reads(store, record, monkeypatch):
+    gate = GatedReads(monkeypatch)
+    c = cache(store, record, 6, io_threads=1)
+    c.prefetch(2, [0, 1, 2], keep=[])
+    assert gate.started.wait(5)
+    resized = threading.Thread(target=c.resize, args=(2 * record,))
+    resized.start()
+    gate.release.set()
+    resized.join(10)
+    assert not resized.is_alive() and c.num_slots == 2
+    assert c.stats.prefetches_cancelled >= 1
+    c.close()

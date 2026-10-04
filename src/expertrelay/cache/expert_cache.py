@@ -1,12 +1,14 @@
 """The runtime's expert cache: routed experts kept in RAM under a fixed
 budget, LRU eviction, optional pinned experts, and background prefetching.
 
-Memory. The budget buys a fixed number of slots, each one expert record
-(store layout record_size, 8.67 MB for Qwen1.5-MoE-A2.7B), allocated once
-as one page-aligned block. Nothing else grows: reads go straight from the
-SSD into a slot (unbuffered, store.expert_reader.read_into), and the forward
+Memory. The budget buys a whole number of slots, each one expert record
+(store layout record_size, 8.67 MB for Qwen1.5-MoE-A2.7B), each its own
+page-aligned block. Nothing else grows: reads go straight from the SSD
+into a slot (unbuffered, store.expert_reader.read_into), and the forward
 pass computes on views into the slot. So RAM for experts is exactly
-slots x record_size, whatever happens.
+slots x record_size, whatever happens. The budget can change between
+tokens (resize(): the Manager's live memory budget); a slot is its own
+allocation so that shrinking really returns its memory.
 
 Slot states:
   FREE     holds nothing
@@ -111,15 +113,12 @@ class CachedExpertSource(ExpertSource):
                 f"{min_free_slots} free"
             )
         self.capacity_bytes = n * record
+        self.min_free_slots = min_free_slots
         self.stats = SourceStats()
         self.read_log: ReadLog | None = None
         self.io_threads = io_threads
         self._read_seconds_ema = INITIAL_READ_SECONDS
-        self._pool = _aligned_pool(n * record)
-        base = self._pool.ctypes.data
-        self._slots = [
-            _Slot(i, base + i * record, self._pool[i * record : (i + 1) * record]) for i in range(n)
-        ]
+        self._slots = [self._new_slot(i) for i in range(n)]
         self._map: dict[Key, _Slot] = {}
         self._lru: OrderedDict[int, None] = OrderedDict()  # unpinned slots holding a key, oldest first
         self._free = list(range(n - 1, -1, -1))
@@ -141,6 +140,12 @@ class CachedExpertSource(ExpertSource):
         return len(self._slots)
 
     @property
+    def min_slots(self) -> int:
+        """The smallest size resize() accepts: pinned experts + min_free_slots."""
+        with self._lock:
+            return sum(s.pinned for s in self._slots) + self.min_free_slots
+
+    @property
     def supports_prefetch(self) -> bool:
         return True
 
@@ -150,6 +155,10 @@ class CachedExpertSource(ExpertSource):
         return self._read_seconds_ema
 
     # ------------------------------------------------------------------ internal
+
+    def _new_slot(self, index: int) -> _Slot:
+        buf = _aligned_pool(self.layout.record_size)
+        return _Slot(index, buf.ctypes.data, buf)
 
     def _touch(self, slot: _Slot) -> None:
         if not slot.pinned:
@@ -329,6 +338,53 @@ class CachedExpertSource(ExpertSource):
                     self.stats.prefetches_cancelled += 1
                     self._drop(s)
                     self._free.append(s.index)
+
+    def resize(self, capacity_bytes: int) -> int:
+        """Change the budget to `capacity_bytes` (whole slots); returns the new
+        slot count. Call between forward calls: queued prefetches are
+        cancelled and reads in flight are waited for first. Shrinking drops
+        free slots, then the least recently used experts; pinned experts
+        stay. Refused (CacheTooSmall, size unchanged) if the pinned experts
+        plus min_free_slots wouldn't fit."""
+        record = self.layout.record_size
+        n = slots_for(capacity_bytes, record)
+        self._release_current()
+        with self._lock:
+            pinned = sum(s.pinned for s in self._slots)
+            if n < pinned + self.min_free_slots:
+                raise CacheTooSmall(
+                    f"{capacity_bytes / 1e9:.2f} GB holds {n} experts; need {pinned} pinned + "
+                    f"{self.min_free_slots} free"
+                )
+            for s in self._slots:
+                if s.state == QUEUED:
+                    self.stats.prefetches_cancelled += 1
+                    self._drop(s)
+                    self._free.append(s.index)
+            loading = [s for s in self._slots if s.state == LOADING]
+        for s in loading:
+            s.done.wait()
+        with self._lock:
+            if n < len(self._slots):
+                ready = [self._slots[i] for i in self._lru]  # least recently used first
+                drop = [s for s in self._slots if s.state == FREE and not s.pinned]
+                drop += [s for s in ready if s.refs == 0 and s.state == READY]
+                for s in drop[: len(self._slots) - n]:
+                    if s.prefetched:
+                        self.stats.prefetches_wasted += 1
+                    self._drop(s)
+                    s.index = -1
+                kept = [s for s in self._slots if s.index != -1]
+            else:
+                kept = self._slots + [self._new_slot(-1) for _ in range(n - len(self._slots))]
+            order = [self._slots[i] for i in self._lru]  # keep the LRU order across re-indexing
+            for i, s in enumerate(kept):
+                s.index = i
+            self._slots = kept
+            self._lru = OrderedDict((s.index, None) for s in order if s.index != -1)
+            self._free = [s.index for s in reversed(kept) if s.state == FREE]
+            self.capacity_bytes = len(kept) * record
+            return len(kept)
 
     def cached_keys(self) -> set[Key]:
         with self._lock:
