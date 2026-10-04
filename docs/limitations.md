@@ -296,7 +296,8 @@ In addition:
 - **Verdict so far:** round-to-nearest int4 buys +45% speed at a cost of
   8 points of next-token agreement (13 for Arabic). Not good enough to
   use; the next candidates are GPTQ/AWQ-style 4-bit, or int4 only for
-  the least-used experts.
+  the least-used experts. (GPTQ experts were tried in Step B3, on the Chat
+  model: 91.5%, still a FAIL; see below.)
 - **The int4 speed runs used the base int8 store's prefetch calibration**
   (flagged in each run's `calibration_store_matches`); int4 routing
   differs slightly, so its adaptive prefetch is somewhat mis-calibrated.
@@ -314,10 +315,38 @@ In addition:
   drop at any time; the builder's own allocations stay small. The estimate
   doesn't count mapped file pages.
 
-## GPTQ int4 on the Chat model (Step B3, in progress)
+## GPTQ int4 on the Chat model (Step B3): faster, still not good enough
 
-Progress and outputs: `docs/b3-progress.md`. Results will go in
-`docs/gptq-int4.md`.
+`docs/gptq-int4.md`, generated from `benchmarks/results/gptq_quality.json`,
+`gptq_benchmark.json`, `gptq_conversion_check.json` and
+`int4_store_build.json`; store metadata in `benchmarks/stores/`; step log
+in `docs/b3-progress.md`.
+
+- **Quality: GPTQ FAILS the pass rule** (fixed before the run: overall
+  top-1 agreement with bf16 Chat >= 96% and every category >= 90%). Top-1
+  over 2010 positions: int8 98.5% (PASS), RTN g128 90.1%, GPTQ g128 91.5%.
+  GPTQ clears 90% in every category (worst: math 90.2%) but misses the 96%
+  overall bar by 4.5 points. GPTQ halves RTN's mean KL (0.069 vs 0.141
+  nats) and helps Arabic most (91.4% vs 89.4%), but most of the int4 loss
+  remains.
+- **Speed: +29%.** One clean session, 1.25 GB cache, best setups (cache +
+  adaptive prefetch): int8 2.10 tok/s, GPTQ 2.70 tok/s; expert bytes read
+  per token 705 vs 341 MB. Compute per token rises 0.107 -> 0.134 s
+  (4-bit unpacking). Tokens with cache/prefetch on vs off were identical
+  within each precision in all 12 runs.
+- **One run had a smaller cache:** int8 cache-only, round 0 started with
+  too little free RAM and got 133 experts (1.153 GB) instead of 144. Its
+  hit rate (16.28%) matches the 144-expert run (16.31%), so the mean is
+  kept; the doc lists the cache size per run.
+- **Not comparable to Step B2's +45%:** B2 was the base model, raw-text
+  prompts and another session (int8 best 2.41 tok/s there vs 2.10 here).
+- **GPTQ's prefetch calibration comes from a short trace** (24 prompts,
+  12 to fit, 12 to test) vs int8 Chat's 96. It's a little less accurate
+  (rank-aware ECE 0.0045 vs 0.0014; top-8 recall 89.2% vs 90.0%).
+- **Quality run crashed once** (exit 139, access violation) as the bf16
+  reference began. All per-prompt hidden states were already saved, and
+  the rerun continued from them. The recorded peak RSS covers only the
+  second process.
 
 - **Only the routed experts come from the GPTQ release**
   (Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4 @ 81b132a). The release also
