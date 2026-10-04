@@ -42,18 +42,26 @@ listed under "Next": every step resumes where it stopped.
   `bench/llamacpp_quality.py`, configs `configs/stepc.json`,
   `configs/stepc_sweep.json`; tests in `tests/test_fair_test.py`.
 
-## In progress
-
-- **4. llama.cpp quality** (`python -m expertrelay.bench.llamacpp_quality`;
-  not a speed measurement). PAUSED at the user's request (2026-10-04)
-  after ~10 min, before the first prompt finished: 0 of 28 prompts saved
-  for Q4_K_M, none for Q8_0. Rerunning the command resumes at the first
-  unsaved prompt (`models/work/llamacpp_quality/<model>.jsonl`).
+- **4. llama.cpp quality** (2026-10-04, paused once at the user's request,
+  resumed without loss; ~4 h): `benchmarks/results/llamacpp_quality.json`.
+  Top-1 vs bf16 over B3's 2010 positions: ExpertRelay int8 98.5% (from
+  gptq_quality.json), llama.cpp Q8_0 94.1%, Q4_K_M 90.4%. Q8_0 agrees at
+  98.0% of the generated positions; its misses concentrate at prompt
+  positions (3-4 per prompt, several inside the chat-template text).
+- **Position check** (`benchmarks/results/llamacpp_position_check.json`,
+  one sequence): at those positions llama.cpp's distribution really
+  differs (e.g. after "<|im_start|>user", bf16 gives "
+" 0.668, int8
+  0.646, llama.cpp Q8_0 0.391). Same answer evaluating the prefix in one
+  batch or token by token, and with an f32 KV cache, so neither the
+  method nor KV precision is the cause; the GGUF's metadata matches the
+  HF config. Not established: whether llama.cpp's activation quantization
+  or another kernel difference causes it (the control, llama.cpp on a bf16
+  GGUF, needs ~29 GB of disk; 26 GB is free).
 
 ## Next
 
-1. Finish step 4 (command above).
-2. Step 3, clean machine (browsers and VS Code closed), plain PowerShell:
+1. Step 3, clean machine (browsers and VS Code closed), plain PowerShell:
    `python -m expertrelay.bench.fair_test`
-3. Step 5, clean machine: `python -m expertrelay.bench.fair_test --sweep`
-4. Step 6: docs/fair-test.md from the results files.
+2. Step 5, clean machine: `python -m expertrelay.bench.fair_test --sweep`
+3. Step 6: docs/fair-test.md from the results files.
