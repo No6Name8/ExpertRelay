@@ -1,0 +1,103 @@
+[
+  {
+    "label": "llama.cpp baseline setup: pinned build, GGUFs converted from bf16 Chat",
+    "timestamp": "2026-10-04T14:16:17Z",
+    "git_commit": "7af319ec73dde20bb75fe5692bd1185d7af0b39d",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 1823240192
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 53469876224
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "repo_id": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+      "revision": "ec052fda178e241c7c443468d2fa1db6618996be"
+    },
+    "config": {
+      "build": "b11146",
+      "commit": "7fe450e19305b828c199d602c23a8337aaa1f03b",
+      "stable_release": "v0.5.0",
+      "threads": 12
+    },
+    "binaries": {
+      "zip": "llama-b11146-bin-win-cpu-x64.zip",
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11146/llama-b11146-bin-win-cpu-x64.zip",
+      "sha256": "14cf1303ca9ac3abd94816850532f9f9a69ac66fbaca3776fc6f9061c2fac1d1",
+      "version_output": "version: 0.5.0-dev (build 11146, commit 7fe450e19)\nbuilt with Clang 20.1.8 for Windows x86_64"
+    },
+    "source": {
+      "url": "https://github.com/ggml-org/llama.cpp/archive/7fe450e19305b828c199d602c23a8337aaa1f03b.tar.gz",
+      "commit": "7fe450e19305b828c199d602c23a8337aaa1f03b",
+      "archive_sha256": "a6861d549427f814dc591c439e08206f67ffaba0248344d421589abf18199e67"
+    },
+    "files": {
+      "bf16": {
+        "file": "qwen1.5-moe-a2.7b-chat-bf16.gguf",
+        "bytes": 28644015520,
+        "sha256": "660b16688a696d060859d17a15f0239330c7ec31b78d387e57d7b9c295822a60",
+        "command": [
+          "C:\\Users\\h\\AppData\\Local\\Programs\\Python\\Python310\\python.exe",
+          "models\\tools\\llama.cpp-b11146\\llama.cpp-7fe450e19305b828c199d602c23a8337aaa1f03b\\convert_hf_to_gguf.py",
+          "models\\hf\\Qwen--Qwen1.5-MoE-A2.7B-Chat@ec052fda178e241c7c443468d2fa1db6618996be",
+          "--outfile",
+          "models\\gguf\\qwen1.5-moe-a2.7b-chat-bf16.gguf",
+          "--outtype",
+          "bf16"
+        ],
+        "seconds": 560.6141419000342
+      },
+      "Q4_K_M": {
+        "file": "qwen1.5-moe-a2.7b-chat-Q4_K_M.gguf",
+        "bytes": 9496237280,
+        "sha256": "b4daea3b9fc312e9f2d2c3a8bcfcde57de3a7238ab9f48dc29a0c880f17aa619",
+        "command": [
+          "models\\tools\\llama.cpp-b11146\\bin\\llama-quantize.exe",
+          "models\\gguf\\qwen1.5-moe-a2.7b-chat-bf16.gguf",
+          "models\\gguf\\qwen1.5-moe-a2.7b-chat-Q4_K_M.gguf",
+          "Q4_K_M",
+          "12"
+        ],
+        "seconds": 609.4076795000001
+      },
+      "Q8_0": {
+        "file": "qwen1.5-moe-a2.7b-chat-Q8_0.gguf",
+        "bytes": 15226011040,
+        "sha256": "3fa4193483037e172e350c7f1188bb8eca86f7cbcdd863b9daa0bc201b404719",
+        "command": [
+          "C:\\Users\\h\\AppData\\Local\\Programs\\Python\\Python310\\python.exe",
+          "models\\tools\\llama.cpp-b11146\\llama.cpp-7fe450e19305b828c199d602c23a8337aaa1f03b\\convert_hf_to_gguf.py",
+          "models\\hf\\Qwen--Qwen1.5-MoE-A2.7B-Chat@ec052fda178e241c7c443468d2fa1db6618996be",
+          "--outfile",
+          "models\\gguf\\qwen1.5-moe-a2.7b-chat-Q8_0.gguf",
+          "--outtype",
+          "q8_0"
+        ],
+        "seconds": 756.8051465000026
+      }
+    },
+    "bf16_gguf_deleted_after_quantizing": true
+  }
+]
