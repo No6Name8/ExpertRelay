@@ -1,0 +1,261 @@
+[
+  {
+    "label": "phase3 expert traces",
+    "timestamp": "2026-10-04T11:49:58Z",
+    "git_commit": "214c026d4470f52934f22adb1f567834a383ef84",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 611561472
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 51673022464
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "store": "qwen1.5-moe-a2.7b-chat-int4g128-gptq",
+      "repo_id": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+      "revision": "ec052fda178e241c7c443468d2fa1db6618996be"
+    },
+    "config": {
+      "memory_budget_gb": 2.5,
+      "max_seq": 192,
+      "max_new_tokens": 128,
+      "prompts_file": "C:\\Users\\h\\Documents\\ExpertRelay\\benchmarks\\prompts\\phase3.json",
+      "store_dir": "C:\\Users\\h\\Documents\\ExpertRelay\\models\\qwen1.5-moe-a2.7b-chat-int4g128-gptq",
+      "expert_cache_gb": 0.0,
+      "prefetch": false,
+      "prefetch_k": 8,
+      "prefetch_min_probability": 0.0,
+      "prefetch_calibration": null,
+      "pin_layer0": false,
+      "io_threads": 1,
+      "chat_template": null,
+      "int8_kernel": "fused",
+      "prefill_pipelining": true,
+      "prefetch_adaptive": false,
+      "prefetch_calibration_kind": "rank",
+      "log_reads": false,
+      "prompt_format": "chatml",
+      "prompts_per_category": 4,
+      "trace_dir": "models/traces/qwen1.5-moe-a2.7b-chat-int4g128-gptq"
+    },
+    "estimate": {
+      "seconds": 4840.66978559456,
+      "prefill_s_per_token": 0.5263073326309065,
+      "decode_s_per_token": 1.4253156072584041,
+      "source": "benchmarks/results/phase2_baselines.json @ 5406ea5"
+    },
+    "results": {
+      "prompts_done": 24,
+      "prompts_run_this_session": 12,
+      "actual_seconds_total": 1820.9475934999355,
+      "estimated_seconds_total": 4840.66978559456,
+      "trace_bytes_total": 26636060,
+      "load": {
+        "source": "unbuffered",
+        "int8_kernel": "fused",
+        "backend": {
+          "name": "numpy",
+          "device": null,
+          "reason": "CPU only: the numpy int8 kernel measured 6-13x faster than MindSpore CPU ops"
+        },
+        "estimated_ram_bytes": 2024392192,
+        "budget_gb": 2.5,
+        "resident_ram_bytes": 1559946752,
+        "load_seconds": 3.0257816999801435
+      },
+      "per_prompt": [
+        {
+          "id": "en_01",
+          "category": "en",
+          "prompt_tokens": 41,
+          "seconds": 75.47069180000108,
+          "prefill_seconds": 10.802850299980491
+        },
+        {
+          "id": "ar_msa_01",
+          "category": "ar_msa",
+          "prompt_tokens": 40,
+          "seconds": 76.2748742000258,
+          "prefill_seconds": 10.060957700014114
+        },
+        {
+          "id": "ar_gulf_01",
+          "category": "ar_gulf",
+          "prompt_tokens": 34,
+          "seconds": 72.81012150002061,
+          "prefill_seconds": 9.489194599998882
+        },
+        {
+          "id": "code_01",
+          "category": "code",
+          "prompt_tokens": 49,
+          "seconds": 73.67592109998805,
+          "prefill_seconds": 11.148531300015748
+        },
+        {
+          "id": "math_01",
+          "category": "math",
+          "prompt_tokens": 55,
+          "seconds": 75.09162030002335,
+          "prefill_seconds": 11.912745400011772
+        },
+        {
+          "id": "chat_01",
+          "category": "chat",
+          "prompt_tokens": 38,
+          "seconds": 71.91153280000435,
+          "prefill_seconds": 9.393864500016207
+        },
+        {
+          "id": "en_02",
+          "category": "en",
+          "prompt_tokens": 27,
+          "seconds": 70.4752981000056,
+          "prefill_seconds": 7.7386299000063445
+        },
+        {
+          "id": "ar_msa_02",
+          "category": "ar_msa",
+          "prompt_tokens": 46,
+          "seconds": 73.39087820000714,
+          "prefill_seconds": 10.562661900010426
+        },
+        {
+          "id": "ar_gulf_02",
+          "category": "ar_gulf",
+          "prompt_tokens": 37,
+          "seconds": 73.2039889000007,
+          "prefill_seconds": 9.150543399999151
+        },
+        {
+          "id": "code_02",
+          "category": "code",
+          "prompt_tokens": 40,
+          "seconds": 76.24898439997924,
+          "prefill_seconds": 10.438594100007322
+        },
+        {
+          "id": "math_02",
+          "category": "math",
+          "prompt_tokens": 38,
+          "seconds": 75.17812850000337,
+          "prefill_seconds": 9.98150930000702
+        },
+        {
+          "id": "chat_02",
+          "category": "chat",
+          "prompt_tokens": 30,
+          "seconds": 72.24354160000803,
+          "prefill_seconds": 8.72895140000037
+        },
+        {
+          "id": "en_03",
+          "category": "en",
+          "prompt_tokens": 37,
+          "seconds": 78.79809739999473,
+          "prefill_seconds": 16.321653400023934
+        },
+        {
+          "id": "ar_msa_03",
+          "category": "ar_msa",
+          "prompt_tokens": 48,
+          "seconds": 75.30882589996327,
+          "prefill_seconds": 11.317590599996038
+        },
+        {
+          "id": "ar_gulf_03",
+          "category": "ar_gulf",
+          "prompt_tokens": 32,
+          "seconds": 72.37786080001388,
+          "prefill_seconds": 8.477151500002947
+        },
+        {
+          "id": "code_03",
+          "category": "code",
+          "prompt_tokens": 37,
+          "seconds": 73.99373119999655,
+          "prefill_seconds": 9.211113099998329
+        },
+        {
+          "id": "math_03",
+          "category": "math",
+          "prompt_tokens": 43,
+          "seconds": 73.00100290001137,
+          "prefill_seconds": 10.132951400009915
+        },
+        {
+          "id": "chat_03",
+          "category": "chat",
+          "prompt_tokens": 34,
+          "seconds": 79.13542349997442,
+          "prefill_seconds": 9.18815469997935
+        },
+        {
+          "id": "en_04",
+          "category": "en",
+          "prompt_tokens": 31,
+          "seconds": 78.229886599991,
+          "prefill_seconds": 9.11748339998303
+        },
+        {
+          "id": "ar_msa_04",
+          "category": "ar_msa",
+          "prompt_tokens": 45,
+          "seconds": 79.363973599975,
+          "prefill_seconds": 11.284911299997475
+        },
+        {
+          "id": "ar_gulf_04",
+          "category": "ar_gulf",
+          "prompt_tokens": 35,
+          "seconds": 80.51342450000811,
+          "prefill_seconds": 9.60546950000571
+        },
+        {
+          "id": "code_04",
+          "category": "code",
+          "prompt_tokens": 43,
+          "seconds": 81.48982730001444,
+          "prefill_seconds": 11.198909999977332
+        },
+        {
+          "id": "math_04",
+          "category": "math",
+          "prompt_tokens": 53,
+          "seconds": 86.92702929995721,
+          "prefill_seconds": 12.48019099998055
+        },
+        {
+          "id": "chat_04",
+          "category": "chat",
+          "prompt_tokens": 30,
+          "seconds": 75.83292909996817,
+          "prefill_seconds": 10.96194030001061
+        }
+      ],
+      "peak_rss_mb": 1798.967296
+    }
+  }
+]
