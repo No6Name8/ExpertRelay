@@ -1,0 +1,56 @@
+# Phase 6 progress (Manager lite)
+
+Updated after every finished item. If anything stops, rerun the command
+listed under "Next": every step resumes where it stopped.
+
+## Done
+
+- **Steps 1-4: code and tests** (d81212e; 2026-10-04):
+  - `manager/probe.py`: read time per expert on the store, 1 and 2 reads
+    in flight (48 reads each, readers opened before the clock starts).
+  - `manager/policy.py`: every decision with its reason (cache size from
+    free RAM minus the rest of the process minus a safety margin of
+    max(512 MiB, 5% of RAM); I/O threads; prefetch top-8 / adaptive / off
+    by a break-even rule; pin layer 0; backend; precision).
+  - `runtime/auto.py`: compute probe per layer, `auto_load`, `LiveBudget`
+    (cache resized between tokens from a budget file or `set()`).
+  - `cache/expert_cache.py`: `resize()`; one allocation per slot so
+    shrinking frees memory.
+  - `runtime/generate.py`: `--auto`, `--fast`, `--budget-file`,
+    `--memory-budget-gb`; the decision record is saved with every run.
+  - Tests: `test_manager_policy.py` (fake machines), `test_runtime_auto.py`
+    (identical tokens whatever the Manager chooses, incl. a live resize),
+    `test_expert_cache.py` (resize), `test_manager_validation.py`.
+- **Changes made before any validation run, after two --auto smoke runs**
+  (one prompt, 3-4 tokens, VS Code open; not benchmarks):
+  - The read probe timed the 2-in-flight test including each thread
+    opening its reader (index parse), so it showed 2 threads as slower
+    (0.81x). Fixed; it then read 1.09x-1.12x; reads per depth 24 -> 48.
+  - The prefetch rule's first version turned prefetch off below one read
+    per window; the smoke run measured ~0.8 reads per window (fast
+    kernel), where Step B3 measured adaptive beating cache only. Replaced
+    by the break-even rule in `manager/policy.py`'s docstring.
+  - LiveBudget compared the budget file's mtime, which on Windows advances
+    only every ~15.6 ms, so a quick second change could be missed (a test
+    failed 1 time in 4). It now compares the file's contents.
+- **Step 5 code:** `bench/manager_validation.py` (20 runs; scoring rule
+  fixed in its docstring before any run).
+
+## In progress
+
+- **5. Validation run**, waiting for the user to run it on a clean machine
+  (browsers and VS Code closed), from a plain PowerShell window:
+
+      cd C:\Users\h\Documents\ExpertRelay
+      python -m expertrelay.bench.manager_validation
+
+  20 runs (fast and slow regime x --auto / no cache / cache / adaptive /
+  top-8 x 2 rounds), each saved in `models/work/manager_validation/runs/`
+  as it finishes. If interrupted, run the same command again in a new
+  clean session: it does only the unfinished runs and records the second
+  session. Expected time: ~35 min fast regime + ~45 min slow regime.
+
+## Next
+
+- 6. `docs/manager.md` generated from `benchmarks/results/manager_validation.json`;
+  update `docs/limitations.md` and `docs/roadmap.md`.
