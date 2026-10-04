@@ -21,6 +21,28 @@ listed under "Next": every step resumes where it stopped.
   - Threads: 12 for llama.cpp, the same as ExpertRelay's numba kernels (12
     logical cores).
 
+- **1. llama.cpp setup and GGUFs** (2026-10-04):
+  `benchmarks/results/llamacpp_setup.json` (exact commands, sizes, sha256).
+  Binary zip sha256 matches GitHub's digest; `llama-cli --version`:
+  0.5.0-dev (build 11146, commit 7fe450e19). Files in `models/gguf/`:
+  - bf16 GGUF 28.64 GB (converter, 561 s), used for Q4_K_M, then deleted;
+  - **Q4_K_M 9.50 GB** (llama-quantize, 609 s). The experts' down
+    projections have rows of 1408, not divisible by K-quants' 256, so
+    llama.cpp stores those tensors as q5_0 / q8_0 instead (its own
+    fallback, logged by llama-quantize);
+  - **Q8_0 15.23 GB** (converter `--outtype q8_0`, 757 s).
+  - Free disk after: 26 GB.
+- **Checks before the runs:** llama-server b11146 takes our prompt token
+  ids as given (no BOS added), streams one token per event, and returns
+  log-probabilities for all 151,936 tokens with n_probs = vocab (they sum
+  to 1.000), so exact top-1 and KL vs bf16 are measurable with the pinned
+  build itself.
+- **Code for steps 3-5** (committed): `bench/fair_test.py` (A-F, 3
+  interleaved rounds; `--sweep`), `bench/resumable.py`,
+  `bench/llamacpp_quality.py`, configs `configs/stepc.json`,
+  `configs/stepc_sweep.json`; tests in `tests/test_fair_test.py`.
+
 ## In progress
 
-- **1. llama.cpp setup and GGUF conversion.**
+- **4. llama.cpp quality** (`python -m expertrelay.bench.llamacpp_quality`,
+  running in the background; not a speed measurement).
