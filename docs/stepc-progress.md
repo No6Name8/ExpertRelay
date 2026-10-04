@@ -44,5 +44,16 @@ listed under "Next": every step resumes where it stopped.
 
 ## In progress
 
-- **4. llama.cpp quality** (`python -m expertrelay.bench.llamacpp_quality`,
-  running in the background; not a speed measurement).
+- **4. llama.cpp quality** (`python -m expertrelay.bench.llamacpp_quality`;
+  not a speed measurement). PAUSED at the user's request (2026-10-04)
+  after ~10 min, before the first prompt finished: 0 of 28 prompts saved
+  for Q4_K_M, none for Q8_0. Rerunning the command resumes at the first
+  unsaved prompt (`models/work/llamacpp_quality/<model>.jsonl`).
+
+## Next
+
+1. Finish step 4 (command above).
+2. Step 3, clean machine (browsers and VS Code closed), plain PowerShell:
+   `python -m expertrelay.bench.fair_test`
+3. Step 5, clean machine: `python -m expertrelay.bench.fair_test --sweep`
+4. Step 6: docs/fair-test.md from the results files.
