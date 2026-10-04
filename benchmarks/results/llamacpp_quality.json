@@ -1,0 +1,1357 @@
+[
+  {
+    "label": "Step C quality: llama.cpp Q4_K_M / Q8_0 vs bf16 Chat at ExpertRelay's positions",
+    "timestamp": "2026-10-04T20:49:59Z",
+    "git_commit": "fe6d577945b99232636e4047f5d77c0743b86e7d",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 4771438592
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 26445848576
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "gguf": {
+        "bf16": {
+          "file": "qwen1.5-moe-a2.7b-chat-bf16.gguf",
+          "bytes": 28644015520,
+          "sha256": "660b16688a696d060859d17a15f0239330c7ec31b78d387e57d7b9c295822a60",
+          "command": [
+            "C:\\Users\\h\\AppData\\Local\\Programs\\Python\\Python310\\python.exe",
+            "models\\tools\\llama.cpp-b11146\\llama.cpp-7fe450e19305b828c199d602c23a8337aaa1f03b\\convert_hf_to_gguf.py",
+            "models\\hf\\Qwen--Qwen1.5-MoE-A2.7B-Chat@ec052fda178e241c7c443468d2fa1db6618996be",
+            "--outfile",
+            "models\\gguf\\qwen1.5-moe-a2.7b-chat-bf16.gguf",
+            "--outtype",
+            "bf16"
+          ],
+          "seconds": 560.6141419000342
+        },
+        "Q4_K_M": {
+          "file": "qwen1.5-moe-a2.7b-chat-Q4_K_M.gguf",
+          "bytes": 9496237280,
+          "sha256": "b4daea3b9fc312e9f2d2c3a8bcfcde57de3a7238ab9f48dc29a0c880f17aa619",
+          "command": [
+            "models\\tools\\llama.cpp-b11146\\bin\\llama-quantize.exe",
+            "models\\gguf\\qwen1.5-moe-a2.7b-chat-bf16.gguf",
+            "models\\gguf\\qwen1.5-moe-a2.7b-chat-Q4_K_M.gguf",
+            "Q4_K_M",
+            "12"
+          ],
+          "seconds": 609.4076795000001
+        },
+        "Q8_0": {
+          "file": "qwen1.5-moe-a2.7b-chat-Q8_0.gguf",
+          "bytes": 15226011040,
+          "sha256": "3fa4193483037e172e350c7f1188bb8eca86f7cbcdd863b9daa0bc201b404719",
+          "command": [
+            "C:\\Users\\h\\AppData\\Local\\Programs\\Python\\Python310\\python.exe",
+            "models\\tools\\llama.cpp-b11146\\llama.cpp-7fe450e19305b828c199d602c23a8337aaa1f03b\\convert_hf_to_gguf.py",
+            "models\\hf\\Qwen--Qwen1.5-MoE-A2.7B-Chat@ec052fda178e241c7c443468d2fa1db6618996be",
+            "--outfile",
+            "models\\gguf\\qwen1.5-moe-a2.7b-chat-Q8_0.gguf",
+            "--outtype",
+            "q8_0"
+          ],
+          "seconds": 756.8051465000026
+        }
+      },
+      "positions_from": "gptq_quality"
+    },
+    "config": {
+      "method": "llama-server n_probs = vocab, prefix by prefix",
+      "expertrelay_int8_from": {
+        "file": "benchmarks/results/gptq_quality.json",
+        "git_commit": "ed5c85a93e124e9c61898475caeb7961fabfd86a",
+        "timestamp": "2026-10-01T02:53:09Z"
+      }
+    },
+    "analysis": {
+      "prompts": 28,
+      "positions": 2010,
+      "by_precision": {
+        "expertrelay_int8": {
+          "overall": {
+            "prompts": 28,
+            "positions": 2010,
+            "top1_agreement": 0.9845771144278607,
+            "top1_agreement_generated": 0.9854910714285714,
+            "kl_mean": 0.0108366988823456,
+            "kl_max": 1.1759665544278384
+          },
+          "by_category": {
+            "ar_gulf": {
+              "prompts": 4,
+              "positions": 266,
+              "top1_agreement": 0.9849624060150376,
+              "top1_agreement_generated": 0.9765625,
+              "kl_mean": 0.01028716190535555,
+              "kl_max": 0.21800299309990562
+            },
+            "ar_msa": {
+              "prompts": 4,
+              "positions": 307,
+              "top1_agreement": 0.993485342019544,
+              "top1_agreement_generated": 0.984375,
+              "kl_mean": 0.012085198434961052,
+              "kl_max": 0.7069068300716379
+            },
+            "chat": {
+              "prompts": 4,
+              "positions": 260,
+              "top1_agreement": 0.9730769230769231,
+              "top1_agreement_generated": 0.9765625,
+              "kl_mean": 0.009908122763484486,
+              "kl_max": 0.3817155635438664
+            },
+            "code": {
+              "prompts": 4,
+              "positions": 297,
+              "top1_agreement": 0.9797979797979798,
+              "top1_agreement_generated": 0.984375,
+              "kl_mean": 0.010710469924134852,
+              "kl_max": 0.2180034083244905
+            },
+            "en": {
+              "prompts": 4,
+              "positions": 264,
+              "top1_agreement": 0.9886363636363636,
+              "top1_agreement_generated": 0.9921875,
+              "kl_mean": 0.00966356582161828,
+              "kl_max": 0.2180040431315478
+            },
+            "math": {
+              "prompts": 4,
+              "positions": 317,
+              "top1_agreement": 0.9842271293375394,
+              "top1_agreement_generated": 1.0,
+              "kl_mean": 0.013340912024843663,
+              "kl_max": 1.1759665544278384
+            },
+            "phase2_ar": {
+              "prompts": 1,
+              "positions": 69,
+              "top1_agreement": 0.9710144927536232,
+              "top1_agreement_generated": 0.9375,
+              "kl_mean": 0.009026173479785704,
+              "kl_max": 0.2180023745239722
+            },
+            "phase2_code": {
+              "prompts": 1,
+              "positions": 72,
+              "top1_agreement": 0.9861111111111112,
+              "top1_agreement_generated": 1.0,
+              "kl_mean": 0.013127961945749642,
+              "kl_max": 0.23891620065933858
+            },
+            "phase2_en": {
+              "prompts": 1,
+              "positions": 69,
+              "top1_agreement": 1.0,
+              "top1_agreement_generated": 1.0,
+              "kl_mean": 0.007480461731098917,
+              "kl_max": 0.21800138921864998
+            },
+            "phase2_math": {
+              "prompts": 1,
+              "positions": 89,
+              "top1_agreement": 0.9887640449438202,
+              "top1_agreement_generated": 1.0,
+              "kl_mean": 0.00801888430062182,
+              "kl_max": 0.2180022732106534
+            }
+          },
+          "arabic": {
+            "prompts": 9,
+            "positions": 642,
+            "top1_agreement": 0.9875389408099688,
+            "top1_agreement_generated": 0.9756944444444444,
+            "kl_mean": 0.011011443857418741,
+            "kl_max": 0.7069068300716379
+          },
+          "phase2": {
+            "prompts": 4,
+            "positions": 299,
+            "top1_agreement": 0.9866220735785953,
+            "top1_agreement_generated": 0.984375,
+            "kl_mean": 0.00935736385418179,
+            "kl_max": 0.23891620065933858
+          },
+          "per_prompt": [
+            {
+              "id": "en",
+              "set": "phase2",
+              "category": "phase2_en",
+              "positions": 69,
+              "agree": 69,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.5161518594458253,
+              "kl_max": 0.21800138921864998
+            },
+            {
+              "id": "ar",
+              "set": "phase2",
+              "category": "phase2_ar",
+              "positions": 69,
+              "agree": 67,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 0.6228059701052135,
+              "kl_max": 0.2180023745239722
+            },
+            {
+              "id": "code",
+              "set": "phase2",
+              "category": "phase2_code",
+              "positions": 72,
+              "agree": 71,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.9452132600939742,
+              "kl_max": 0.23891620065933858
+            },
+            {
+              "id": "math",
+              "set": "phase2",
+              "category": "phase2_math",
+              "positions": 89,
+              "agree": 88,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.713680702755342,
+              "kl_max": 0.2180022732106534
+            },
+            {
+              "id": "en_01",
+              "set": "quality24",
+              "category": "en",
+              "positions": 73,
+              "agree": 72,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.8249518186989647,
+              "kl_max": 0.21800264090428967
+            },
+            {
+              "id": "en_02",
+              "set": "quality24",
+              "category": "en",
+              "positions": 59,
+              "agree": 59,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.546977507036108,
+              "kl_max": 0.21800223800102234
+            },
+            {
+              "id": "en_03",
+              "set": "quality24",
+              "category": "en",
+              "positions": 69,
+              "agree": 68,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 0.5844176464068485,
+              "kl_max": 0.2180026419449385
+            },
+            {
+              "id": "en_04",
+              "set": "quality24",
+              "category": "en",
+              "positions": 63,
+              "agree": 62,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.5948344047653042,
+              "kl_max": 0.2180040431315478
+            },
+            {
+              "id": "ar_msa_01",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 72,
+              "agree": 72,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.6783012528590202,
+              "kl_max": 0.21800103688704042
+            },
+            {
+              "id": "ar_msa_02",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 78,
+              "agree": 77,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 0.6202036683577924,
+              "kl_max": 0.21800237251229698
+            },
+            {
+              "id": "ar_msa_03",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 80,
+              "agree": 79,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 1.670220876004154,
+              "kl_max": 0.7069068300716379
+            },
+            {
+              "id": "ar_msa_04",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 77,
+              "agree": 77,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.7414301223120761,
+              "kl_max": 0.2180024749681217
+            },
+            {
+              "id": "ar_gulf_01",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 66,
+              "agree": 66,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.5822605550875488,
+              "kl_max": 0.2180017906925787
+            },
+            {
+              "id": "ar_gulf_02",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 69,
+              "agree": 68,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 0.6272264895990967,
+              "kl_max": 0.21800165615839645
+            },
+            {
+              "id": "ar_gulf_03",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 64,
+              "agree": 63,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.7890855555702179,
+              "kl_max": 0.2180026711507243
+            },
+            {
+              "id": "ar_gulf_04",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 67,
+              "agree": 65,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 0.7378124665677128,
+              "kl_max": 0.21800299309990562
+            },
+            {
+              "id": "code_01",
+              "set": "quality24",
+              "category": "code",
+              "positions": 81,
+              "agree": 78,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.8059862948405963,
+              "kl_max": 0.21800105407964052
+            },
+            {
+              "id": "code_02",
+              "set": "quality24",
+              "category": "code",
+              "positions": 72,
+              "agree": 71,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 0.8892171776696627,
+              "kl_max": 0.21800180729463486
+            },
+            {
+              "id": "code_03",
+              "set": "quality24",
+              "category": "code",
+              "positions": 69,
+              "agree": 67,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 0.6844257901802204,
+              "kl_max": 0.2180034083244905
+            },
+            {
+              "id": "code_04",
+              "set": "quality24",
+              "category": "code",
+              "positions": 75,
+              "agree": 75,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.8013803047775715,
+              "kl_max": 0.21800162969070236
+            },
+            {
+              "id": "math_01",
+              "set": "quality24",
+              "category": "math",
+              "positions": 87,
+              "agree": 85,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 1.1218018606605251,
+              "kl_max": 0.21800143281293932
+            },
+            {
+              "id": "math_02",
+              "set": "quality24",
+              "category": "math",
+              "positions": 70,
+              "agree": 70,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.6202412135767302,
+              "kl_max": 0.21800227368230807
+            },
+            {
+              "id": "math_03",
+              "set": "quality24",
+              "category": "math",
+              "positions": 75,
+              "agree": 74,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.5897305500159904,
+              "kl_max": 0.2180013456850772
+            },
+            {
+              "id": "math_04",
+              "set": "quality24",
+              "category": "math",
+              "positions": 85,
+              "agree": 83,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 1.8972954876221957,
+              "kl_max": 1.1759665544278384
+            },
+            {
+              "id": "chat_01",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 70,
+              "agree": 68,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.8821207661025435,
+              "kl_max": 0.3817155635438664
+            },
+            {
+              "id": "chat_02",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 62,
+              "agree": 59,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 0.6328772623069701,
+              "kl_max": 0.21800290572815959
+            },
+            {
+              "id": "chat_03",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 66,
+              "agree": 65,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 0.5059250438741744,
+              "kl_max": 0.21800107680227981
+            },
+            {
+              "id": "chat_04",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 62,
+              "agree": 61,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 0.5551888462222783,
+              "kl_max": 0.21800198531720377
+            }
+          ]
+        },
+        "llamacpp_Q4_K_M": {
+          "overall": {
+            "prompts": 28,
+            "positions": 2010,
+            "top1_agreement": 0.9044776119402985,
+            "top1_agreement_generated": 0.9229910714285714,
+            "kl_mean": 0.13012945385908312,
+            "kl_max": 10.063960367016657
+          },
+          "by_category": {
+            "ar_gulf": {
+              "prompts": 4,
+              "positions": 266,
+              "top1_agreement": 0.9097744360902256,
+              "top1_agreement_generated": 0.90625,
+              "kl_mean": 0.12777509670448128,
+              "kl_max": 3.7774624816186244
+            },
+            "ar_msa": {
+              "prompts": 4,
+              "positions": 307,
+              "top1_agreement": 0.9055374592833876,
+              "top1_agreement_generated": 0.8984375,
+              "kl_mean": 0.1420778447463859,
+              "kl_max": 10.063960367016657
+            },
+            "chat": {
+              "prompts": 4,
+              "positions": 260,
+              "top1_agreement": 0.8923076923076924,
+              "top1_agreement_generated": 0.953125,
+              "kl_mean": 0.12148405817089947,
+              "kl_max": 2.0288083448510132
+            },
+            "code": {
+              "prompts": 4,
+              "positions": 297,
+              "top1_agreement": 0.9191919191919192,
+              "top1_agreement_generated": 0.9375,
+              "kl_mean": 0.11747227988608296,
+              "kl_max": 1.3745872046669436
+            },
+            "en": {
+              "prompts": 4,
+              "positions": 264,
+              "top1_agreement": 0.875,
+              "top1_agreement_generated": 0.8671875,
+              "kl_mean": 0.15026196158296257,
+              "kl_max": 2.9883584753690426
+            },
+            "math": {
+              "prompts": 4,
+              "positions": 317,
+              "top1_agreement": 0.9116719242902208,
+              "top1_agreement_generated": 0.9765625,
+              "kl_mean": 0.13196207891505307,
+              "kl_max": 2.4494029168859286
+            },
+            "phase2_ar": {
+              "prompts": 1,
+              "positions": 69,
+              "top1_agreement": 0.8840579710144928,
+              "top1_agreement_generated": 0.84375,
+              "kl_mean": 0.13067072691922224,
+              "kl_max": 1.17755305988632
+            },
+            "phase2_code": {
+              "prompts": 1,
+              "positions": 72,
+              "top1_agreement": 0.9166666666666666,
+              "top1_agreement_generated": 0.9375,
+              "kl_mean": 0.14191134239180828,
+              "kl_max": 1.503427390134676
+            },
+            "phase2_en": {
+              "prompts": 1,
+              "positions": 69,
+              "top1_agreement": 0.927536231884058,
+              "top1_agreement_generated": 0.90625,
+              "kl_mean": 0.0854444334121907,
+              "kl_max": 1.1775522714415299
+            },
+            "phase2_math": {
+              "prompts": 1,
+              "positions": 89,
+              "top1_agreement": 0.9213483146067416,
+              "top1_agreement_generated": 1.0,
+              "kl_mean": 0.12189108265811659,
+              "kl_max": 1.177553686655193
+            }
+          },
+          "arabic": {
+            "prompts": 9,
+            "positions": 642,
+            "top1_agreement": 0.9049844236760125,
+            "top1_agreement_generated": 0.8958333333333334,
+            "kl_mean": 0.1349257853862287,
+            "kl_max": 10.063960367016657
+          },
+          "per_prompt": [
+            {
+              "id": "en",
+              "set": "phase2",
+              "category": "phase2_en",
+              "positions": 69,
+              "agree": 64,
+              "generated_positions": 32,
+              "generated_agree": 29,
+              "kl_sum": 5.895665905441159,
+              "kl_max": 1.1775522714415299
+            },
+            {
+              "id": "ar",
+              "set": "phase2",
+              "category": "phase2_ar",
+              "positions": 69,
+              "agree": 61,
+              "generated_positions": 32,
+              "generated_agree": 27,
+              "kl_sum": 9.016280157426335,
+              "kl_max": 1.17755305988632
+            },
+            {
+              "id": "code",
+              "set": "phase2",
+              "category": "phase2_code",
+              "positions": 72,
+              "agree": 66,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 10.217616652210197,
+              "kl_max": 1.503427390134676
+            },
+            {
+              "id": "math",
+              "set": "phase2",
+              "category": "phase2_math",
+              "positions": 89,
+              "agree": 82,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 10.848306356572376,
+              "kl_max": 1.177553686655193
+            },
+            {
+              "id": "en_01",
+              "set": "quality24",
+              "category": "en",
+              "positions": 73,
+              "agree": 63,
+              "generated_positions": 32,
+              "generated_agree": 25,
+              "kl_sum": 11.806946429801506,
+              "kl_max": 1.9382750019282715
+            },
+            {
+              "id": "en_02",
+              "set": "quality24",
+              "category": "en",
+              "positions": 59,
+              "agree": 52,
+              "generated_positions": 32,
+              "generated_agree": 29,
+              "kl_sum": 11.07956758235919,
+              "kl_max": 2.9883584753690426
+            },
+            {
+              "id": "en_03",
+              "set": "quality24",
+              "category": "en",
+              "positions": 69,
+              "agree": 59,
+              "generated_positions": 32,
+              "generated_agree": 27,
+              "kl_sum": 9.608273558837585,
+              "kl_max": 1.1775500867410882
+            },
+            {
+              "id": "en_04",
+              "set": "quality24",
+              "category": "en",
+              "positions": 63,
+              "agree": 57,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 7.174370286903837,
+              "kl_max": 1.1775552754961744
+            },
+            {
+              "id": "ar_msa_01",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 72,
+              "agree": 66,
+              "generated_positions": 32,
+              "generated_agree": 29,
+              "kl_sum": 8.637917098341061,
+              "kl_max": 1.1775525897769126
+            },
+            {
+              "id": "ar_msa_02",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 78,
+              "agree": 72,
+              "generated_positions": 32,
+              "generated_agree": 29,
+              "kl_sum": 8.308951513504951,
+              "kl_max": 1.177553476672867
+            },
+            {
+              "id": "ar_msa_03",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 80,
+              "agree": 73,
+              "generated_positions": 32,
+              "generated_agree": 29,
+              "kl_sum": 9.573554781986497,
+              "kl_max": 1.815511430684631
+            },
+            {
+              "id": "ar_msa_04",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 77,
+              "agree": 67,
+              "generated_positions": 32,
+              "generated_agree": 28,
+              "kl_sum": 17.097474943307965,
+              "kl_max": 10.063960367016657
+            },
+            {
+              "id": "ar_gulf_01",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 66,
+              "agree": 61,
+              "generated_positions": 32,
+              "generated_agree": 29,
+              "kl_sum": 8.259339428838677,
+              "kl_max": 1.2578582576230082
+            },
+            {
+              "id": "ar_gulf_02",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 69,
+              "agree": 62,
+              "generated_positions": 32,
+              "generated_agree": 28,
+              "kl_sum": 10.176952527862998,
+              "kl_max": 3.7774624816186244
+            },
+            {
+              "id": "ar_gulf_03",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 64,
+              "agree": 57,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 8.93106873565451,
+              "kl_max": 1.177548810601608
+            },
+            {
+              "id": "ar_gulf_04",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 67,
+              "agree": 62,
+              "generated_positions": 32,
+              "generated_agree": 29,
+              "kl_sum": 6.620815031035834,
+              "kl_max": 1.1775536298847404
+            },
+            {
+              "id": "code_01",
+              "set": "quality24",
+              "category": "code",
+              "positions": 81,
+              "agree": 77,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 9.458711842359351,
+              "kl_max": 1.177549150600801
+            },
+            {
+              "id": "code_02",
+              "set": "quality24",
+              "category": "code",
+              "positions": 72,
+              "agree": 63,
+              "generated_positions": 32,
+              "generated_agree": 29,
+              "kl_sum": 8.2638046492003,
+              "kl_max": 1.1775537456170888
+            },
+            {
+              "id": "code_03",
+              "set": "quality24",
+              "category": "code",
+              "positions": 69,
+              "agree": 64,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 8.05039429704115,
+              "kl_max": 1.3745872046669436
+            },
+            {
+              "id": "code_04",
+              "set": "quality24",
+              "category": "code",
+              "positions": 75,
+              "agree": 69,
+              "generated_positions": 32,
+              "generated_agree": 29,
+              "kl_sum": 9.116356337565831,
+              "kl_max": 1.333369813904647
+            },
+            {
+              "id": "math_01",
+              "set": "quality24",
+              "category": "math",
+              "positions": 87,
+              "agree": 80,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 10.650366185461756,
+              "kl_max": 1.1775532939630753
+            },
+            {
+              "id": "math_02",
+              "set": "quality24",
+              "category": "math",
+              "positions": 70,
+              "agree": 64,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 9.756263087342425,
+              "kl_max": 2.4494029168859286
+            },
+            {
+              "id": "math_03",
+              "set": "quality24",
+              "category": "math",
+              "positions": 75,
+              "agree": 69,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 9.37775960919234,
+              "kl_max": 1.98043768353857
+            },
+            {
+              "id": "math_04",
+              "set": "quality24",
+              "category": "math",
+              "positions": 85,
+              "agree": 76,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 12.04759013407531,
+              "kl_max": 2.0000549055020778
+            },
+            {
+              "id": "chat_01",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 70,
+              "agree": 60,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 8.29798695825651,
+              "kl_max": 1.2518442436028352
+            },
+            {
+              "id": "chat_02",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 62,
+              "agree": 54,
+              "generated_positions": 32,
+              "generated_agree": 29,
+              "kl_sum": 9.748427647729274,
+              "kl_max": 1.1775547463180558
+            },
+            {
+              "id": "chat_03",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 66,
+              "agree": 59,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 8.00638737492047,
+              "kl_max": 2.0288083448510132
+            },
+            {
+              "id": "chat_04",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 62,
+              "agree": 59,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 5.53305314352761,
+              "kl_max": 1.177551724625139
+            }
+          ]
+        },
+        "llamacpp_Q8_0": {
+          "overall": {
+            "prompts": 28,
+            "positions": 2010,
+            "top1_agreement": 0.9412935323383085,
+            "top1_agreement_generated": 0.9799107142857143,
+            "kl_mean": 0.0154488351056229,
+            "kl_max": 0.31652244502027244
+          },
+          "by_category": {
+            "ar_gulf": {
+              "prompts": 4,
+              "positions": 266,
+              "top1_agreement": 0.9511278195488722,
+              "top1_agreement_generated": 1.0,
+              "kl_mean": 0.015828923754948664,
+              "kl_max": 0.2597953757667766
+            },
+            "ar_msa": {
+              "prompts": 4,
+              "positions": 307,
+              "top1_agreement": 0.9381107491856677,
+              "top1_agreement_generated": 0.953125,
+              "kl_mean": 0.016394815834825275,
+              "kl_max": 0.31652244502027244
+            },
+            "chat": {
+              "prompts": 4,
+              "positions": 260,
+              "top1_agreement": 0.9423076923076923,
+              "top1_agreement_generated": 0.9921875,
+              "kl_mean": 0.014326437757646257,
+              "kl_max": 0.2597947732969184
+            },
+            "code": {
+              "prompts": 4,
+              "positions": 297,
+              "top1_agreement": 0.936026936026936,
+              "top1_agreement_generated": 0.96875,
+              "kl_mean": 0.014819161240669487,
+              "kl_max": 0.25979535940049
+            },
+            "en": {
+              "prompts": 4,
+              "positions": 264,
+              "top1_agreement": 0.9318181818181818,
+              "top1_agreement_generated": 0.96875,
+              "kl_mean": 0.015598572110500319,
+              "kl_max": 0.25979586431169666
+            },
+            "math": {
+              "prompts": 4,
+              "positions": 317,
+              "top1_agreement": 0.9495268138801262,
+              "top1_agreement_generated": 1.0,
+              "kl_mean": 0.016318601906682044,
+              "kl_max": 0.2597956230109463
+            },
+            "phase2_ar": {
+              "prompts": 1,
+              "positions": 69,
+              "top1_agreement": 0.927536231884058,
+              "top1_agreement_generated": 0.9375,
+              "kl_mean": 0.013978310494044783,
+              "kl_max": 0.2597942354283382
+            },
+            "phase2_code": {
+              "prompts": 1,
+              "positions": 72,
+              "top1_agreement": 0.9444444444444444,
+              "top1_agreement_generated": 0.96875,
+              "kl_mean": 0.019725882717308754,
+              "kl_max": 0.30231652721676705
+            },
+            "phase2_en": {
+              "prompts": 1,
+              "positions": 69,
+              "top1_agreement": 0.9565217391304348,
+              "top1_agreement_generated": 1.0,
+              "kl_mean": 0.012698669920489222,
+              "kl_max": 0.2597936287442183
+            },
+            "phase2_math": {
+              "prompts": 1,
+              "positions": 89,
+              "top1_agreement": 0.9325842696629213,
+              "top1_agreement_generated": 1.0,
+              "kl_mean": 0.012699962144810064,
+              "kl_max": 0.2597960739145211
+            }
+          },
+          "arabic": {
+            "prompts": 9,
+            "positions": 642,
+            "top1_agreement": 0.942367601246106,
+            "top1_agreement_generated": 0.9722222222222222,
+            "kl_mean": 0.015900631782237995,
+            "kl_max": 0.31652244502027244
+          },
+          "per_prompt": [
+            {
+              "id": "en",
+              "set": "phase2",
+              "category": "phase2_en",
+              "positions": 69,
+              "agree": 66,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.8762082245137564,
+              "kl_max": 0.2597936287442183
+            },
+            {
+              "id": "ar",
+              "set": "phase2",
+              "category": "phase2_ar",
+              "positions": 69,
+              "agree": 64,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 0.9645034240890901,
+              "kl_max": 0.2597942354283382
+            },
+            {
+              "id": "code",
+              "set": "phase2",
+              "category": "phase2_code",
+              "positions": 72,
+              "agree": 68,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 1.4202635556462302,
+              "kl_max": 0.30231652721676705
+            },
+            {
+              "id": "math",
+              "set": "phase2",
+              "category": "phase2_math",
+              "positions": 89,
+              "agree": 83,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 1.1302966308880957,
+              "kl_max": 0.2597960739145211
+            },
+            {
+              "id": "en_01",
+              "set": "quality24",
+              "category": "en",
+              "positions": 73,
+              "agree": 69,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.9813906138089049,
+              "kl_max": 0.25979547742990516
+            },
+            {
+              "id": "en_02",
+              "set": "quality24",
+              "category": "en",
+              "positions": 59,
+              "agree": 54,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 1.1185901903451447,
+              "kl_max": 0.25979446114236043
+            },
+            {
+              "id": "en_03",
+              "set": "quality24",
+              "category": "en",
+              "positions": 69,
+              "agree": 64,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 0.9780674443555365,
+              "kl_max": 0.2597929101147788
+            },
+            {
+              "id": "en_04",
+              "set": "quality24",
+              "category": "en",
+              "positions": 63,
+              "agree": 59,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 1.039974788662498,
+              "kl_max": 0.25979586431169666
+            },
+            {
+              "id": "ar_msa_01",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 72,
+              "agree": 68,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 1.041547859254445,
+              "kl_max": 0.25979391277644587
+            },
+            {
+              "id": "ar_msa_02",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 78,
+              "agree": 74,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 1.0708389747469356,
+              "kl_max": 0.25979517074924907
+            },
+            {
+              "id": "ar_msa_03",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 80,
+              "agree": 75,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 1.818794231514096,
+              "kl_max": 0.31652244502027244
+            },
+            {
+              "id": "ar_msa_04",
+              "set": "quality24",
+              "category": "ar_msa",
+              "positions": 77,
+              "agree": 71,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 1.102027395775882,
+              "kl_max": 0.259794436529621
+            },
+            {
+              "id": "ar_gulf_01",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 66,
+              "agree": 63,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 1.006085745140262,
+              "kl_max": 0.25979376261677967
+            },
+            {
+              "id": "ar_gulf_02",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 69,
+              "agree": 66,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.9737498287456776,
+              "kl_max": 0.2597953757667766
+            },
+            {
+              "id": "ar_gulf_03",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 64,
+              "agree": 60,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 1.2356598102425747,
+              "kl_max": 0.2597929563590991
+            },
+            {
+              "id": "ar_gulf_04",
+              "set": "quality24",
+              "category": "ar_gulf",
+              "positions": 67,
+              "agree": 64,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.9949983346878304,
+              "kl_max": 0.2597952075791951
+            },
+            {
+              "id": "code_01",
+              "set": "quality24",
+              "category": "code",
+              "positions": 81,
+              "agree": 75,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 1.2510419766843623,
+              "kl_max": 0.2597937700755348
+            },
+            {
+              "id": "code_02",
+              "set": "quality24",
+              "category": "code",
+              "positions": 72,
+              "agree": 67,
+              "generated_positions": 32,
+              "generated_agree": 30,
+              "kl_sum": 0.9479924384830232,
+              "kl_max": 0.25979507019825654
+            },
+            {
+              "id": "code_03",
+              "set": "quality24",
+              "category": "code",
+              "positions": 69,
+              "agree": 65,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 1.1497128718304641,
+              "kl_max": 0.25979535940049
+            },
+            {
+              "id": "code_04",
+              "set": "quality24",
+              "category": "code",
+              "positions": 75,
+              "agree": 71,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 1.052543601480988,
+              "kl_max": 0.2597938898179548
+            },
+            {
+              "id": "math_01",
+              "set": "quality24",
+              "category": "math",
+              "positions": 87,
+              "agree": 82,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 1.6384320309638778,
+              "kl_max": 0.2597951046863866
+            },
+            {
+              "id": "math_02",
+              "set": "quality24",
+              "category": "math",
+              "positions": 70,
+              "agree": 67,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 1.159817260244559,
+              "kl_max": 0.2597956230109463
+            },
+            {
+              "id": "math_03",
+              "set": "quality24",
+              "category": "math",
+              "positions": 75,
+              "agree": 71,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 1.185708509382673,
+              "kl_max": 0.25979490069577965
+            },
+            {
+              "id": "math_04",
+              "set": "quality24",
+              "category": "math",
+              "positions": 85,
+              "agree": 81,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 1.1890390038270988,
+              "kl_max": 0.25979504035670675
+            },
+            {
+              "id": "chat_01",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 70,
+              "agree": 66,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.917769146737137,
+              "kl_max": 0.2597924054610588
+            },
+            {
+              "id": "chat_02",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 62,
+              "agree": 58,
+              "generated_positions": 32,
+              "generated_agree": 31,
+              "kl_sum": 1.0414031605216199,
+              "kl_max": 0.25979462524046704
+            },
+            {
+              "id": "chat_03",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 66,
+              "agree": 63,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.9873299379700199,
+              "kl_max": 0.25979423375451516
+            },
+            {
+              "id": "chat_04",
+              "set": "quality24",
+              "category": "chat",
+              "positions": 62,
+              "agree": 58,
+              "generated_positions": 32,
+              "generated_agree": 32,
+              "kl_sum": 0.7783715717592504,
+              "kl_max": 0.2597947732969184
+            }
+          ]
+        }
+      },
+      "verdict": {
+        "expertrelay_int8": {
+          "pass": true,
+          "overall_top1": 0.9845771144278607,
+          "worst_category": "chat",
+          "worst_category_top1": 0.9730769230769231
+        },
+        "llamacpp_Q4_K_M": {
+          "pass": false,
+          "overall_top1": 0.9044776119402985,
+          "worst_category": "en",
+          "worst_category_top1": 0.875
+        },
+        "llamacpp_Q8_0": {
+          "pass": false,
+          "overall_top1": 0.9412935323383085,
+          "worst_category": "en",
+          "worst_category_top1": 0.9318181818181818
+        }
+      }
+    },
+    "peak_rss_mb": 1664.135168
+  }
+]
