@@ -229,7 +229,8 @@ def speed_section() -> str:
     for s in r["config"]["setups"]:
         runs = [x for x in res if x["id"] == s["id"]]
         each = ", ".join(f"{x['metrics']['decode_tokens_per_s']:.3f}" for x in runs)
-        slots = runs[0]["run"]["load"].get("cache", {}).get("slots", "-")
+        # per run: fit_cache lowers a run's cache when RAM is short at its start
+        slots = " / ".join(str(x["run"]["load"].get("cache", {}).get("slots", "-")) for x in runs)
         hit = f"{_m(runs, 'cache', 'decode_hit_rate'):.1%}" if s["cache"] else "-"
         lines.append(
             f"| {s['name']} | **{_m(runs, 'metrics', 'decode_tokens_per_s'):.3f}** ({each}) | "
@@ -240,6 +241,19 @@ def speed_section() -> str:
             f"{statistics.fmean(x['peak_rss_mb_polled'] for x in runs):.0f} |"
         )
     same = r["agreement"]
+    lowered = [f"{x['id']}#{x['round']}" for x in res if (x.get("cache_fit") or {}).get("lowered")]
+    if lowered:
+        lines += [
+            "",
+            f"Cache lowered below {r['config']['cache_gb']} GB because RAM was short at the run's start: "
+            + ", ".join(
+                f"{k} ({x['cache_fit']['slots']} experts, {x['cache_fit']['used_gb']:.3f} GB)"
+                for k, x in zip(
+                    lowered, [x for x in res if (x.get("cache_fit") or {}).get("lowered")], strict=True
+                )
+            )
+            + ". Experts in cache are listed per run.",
+        ]
     lines += [
         "",
         f"Tokens identical to the same precision's no-cache run: {sum(1 for v in same.values() if v)} of "
