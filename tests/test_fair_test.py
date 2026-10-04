@@ -60,3 +60,27 @@ def test_llama_metrics_use_the_same_definitions_as_expertrelay():
     assert m["decode_tokens_per_s"] == pytest.approx(126 / 18.9)  # tokens 2..64 over their time, all prompts
     assert m["time_to_first_token_mean_s"] == 2.0
     assert m["server_predicted_per_second_mean"] == 11
+
+
+def test_llama_logprobs_asks_every_prefix_and_refuses_a_changed_prompt(monkeypatch):
+    import numpy as np
+
+    import expertrelay.bench.llamacpp_quality as lq
+
+    asked = []
+
+    def fake_request(prefix, vocab):
+        asked.append(list(prefix))
+        lp = np.full(vocab, -10.0)
+        lp[prefix[-1] % vocab] = -0.01
+        return lp, len(prefix)
+
+    monkeypatch.setattr(lq, "_request", fake_request)
+    rows = lq.llama_logprobs([3, 1, 4], vocab=8)
+    assert asked == [[3], [3, 1], [3, 1, 4]] and rows.shape == (3, 8)
+    assert list(rows.argmax(-1)) == [3, 1, 4]
+    monkeypatch.setattr(
+        lq, "_request", lambda prefix, vocab: (np.zeros(vocab), len(prefix) + 1)
+    )  # a BOS added
+    with pytest.raises(RuntimeError):
+        lq.llama_logprobs([3, 1], vocab=8)
