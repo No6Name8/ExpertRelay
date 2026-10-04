@@ -1,0 +1,468 @@
+[
+  {
+    "label": "llama.cpp Q8_0 vs bf16: positions where top-1 differs (one sequence)",
+    "timestamp": "2026-10-04T21:04:41Z",
+    "git_commit": "629609904e87409c00871590eeb1eaf9d84ba4bc",
+    "git_dirty": false,
+    "machine": {
+      "hostname": "THE-BEAST",
+      "memory": {
+        "total_bytes": 8300781568,
+        "available_bytes": 4915249152
+      },
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "physical_cores": 8,
+        "logical_cores": 12
+      },
+      "drive": {
+        "path": "C:\\Users\\h\\Documents\\ExpertRelay",
+        "model": "CS3160PGFCV100DCAFF",
+        "bus_type": "NVMe",
+        "media_type": "SSD",
+        "total_bytes": 510263291904,
+        "free_bytes": 26391572480
+      },
+      "software": {
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.10.0",
+        "mindspore_version": "2.7.1"
+      },
+      "accelerators": [],
+      "disk_read": null
+    },
+    "seed": 0,
+    "model": {
+      "gguf": "qwen1.5-moe-a2.7b-chat-Q8_0.gguf",
+      "sequence": "en_02",
+      "prompt_len": 27,
+      "positions": 59
+    },
+    "config": {
+      "index": 5
+    },
+    "differing_positions": [
+      {
+        "position": 2,
+        "in_prompt": true,
+        "context_token": "\n",
+        "bf16_top3": [
+          [
+            "A",
+            0.06393246352672577
+          ],
+          [
+            "1",
+            0.05204715207219124
+          ],
+          [
+            " (",
+            0.03970184922218323
+          ]
+        ],
+        "int8_top3": [
+          [
+            "A",
+            0.07939277589321136
+          ],
+          [
+            ":",
+            0.03435436263680458
+          ],
+          [
+            "1",
+            0.03277247026562691
+          ]
+        ],
+        "q8_incremental_top3": [
+          [
+            " (",
+            0.12225560454088068
+          ],
+          [
+            " ",
+            0.07005527124518161
+          ],
+          [
+            "1",
+            0.04354958980553025
+          ]
+        ],
+        "q8_batch_top3": [
+          [
+            " (",
+            0.125936000948088
+          ],
+          [
+            " ",
+            0.06623089769024566
+          ],
+          [
+            "1",
+            0.044427755263282694
+          ]
+        ],
+        "q8_batch_f32_kv_top3": [
+          [
+            " (",
+            0.125936000948088
+          ],
+          [
+            " ",
+            0.06623089769024566
+          ],
+          [
+            "1",
+            0.044427755263282694
+          ]
+        ]
+      },
+      {
+        "position": 6,
+        "in_prompt": true,
+        "context_token": " helpful",
+        "bf16_top3": [
+          [
+            " and",
+            0.1660504788160324
+          ],
+          [
+            " assistant",
+            0.07261005789041519
+          ],
+          [
+            "",
+            0.029458170756697655
+          ]
+        ],
+        "int8_top3": [
+          [
+            " and",
+            0.1891098916530609
+          ],
+          [
+            " assistant",
+            0.14032602310180664
+          ],
+          [
+            " system",
+            0.05205816775560379
+          ]
+        ],
+        "q8_incremental_top3": [
+          [
+            " assistant",
+            0.13045787386157345
+          ],
+          [
+            " AI",
+            0.07791005877186773
+          ],
+          [
+            " and",
+            0.07529283051145119
+          ]
+        ],
+        "q8_batch_top3": [
+          [
+            " assistant",
+            0.13652571558411516
+          ],
+          [
+            " and",
+            0.08114812104978325
+          ],
+          [
+            " AI",
+            0.07524345486676472
+          ]
+        ],
+        "q8_batch_f32_kv_top3": [
+          [
+            " assistant",
+            0.13652571558411516
+          ],
+          [
+            " and",
+            0.08114812104978325
+          ],
+          [
+            " AI",
+            0.07524345486676472
+          ]
+        ]
+      },
+      {
+        "position": 12,
+        "in_prompt": true,
+        "context_token": "user",
+        "bf16_top3": [
+          [
+            "\n",
+            0.6684877872467041
+          ],
+          [
+            ":\n",
+            0.1800885945558548
+          ],
+          [
+            "",
+            0.016338147222995758
+          ]
+        ],
+        "int8_top3": [
+          [
+            "\n",
+            0.6464713215827942
+          ],
+          [
+            ":\n",
+            0.19944334030151367
+          ],
+          [
+            "",
+            0.018994886428117752
+          ]
+        ],
+        "q8_incremental_top3": [
+          [
+            ":\n",
+            0.41078319935836205
+          ],
+          [
+            "\n",
+            0.355094587844423
+          ],
+          [
+            "",
+            0.01796578272123407
+          ]
+        ],
+        "q8_batch_top3": [
+          [
+            ":\n",
+            0.39138137895541325
+          ],
+          [
+            "\n",
+            0.37792506029217504
+          ],
+          [
+            "",
+            0.018240710011051285
+          ]
+        ],
+        "q8_batch_f32_kv_top3": [
+          [
+            ":\n",
+            0.39138137895541325
+          ],
+          [
+            "\n",
+            0.37792506029217504
+          ],
+          [
+            "",
+            0.018240710011051285
+          ]
+        ]
+      },
+      {
+        "position": 47,
+        "in_prompt": false,
+        "context_token": ",",
+        "bf16_top3": [
+          [
+            " ultimately",
+            0.4511304199695587
+          ],
+          [
+            " which",
+            0.22430120408535004
+          ],
+          [
+            " primarily",
+            0.1960805505514145
+          ]
+        ],
+        "int8_top3": [
+          [
+            " ultimately",
+            0.4473283886909485
+          ],
+          [
+            " primarily",
+            0.23690462112426758
+          ],
+          [
+            " which",
+            0.18709054589271545
+          ]
+        ],
+        "q8_incremental_top3": [
+          [
+            " which",
+            0.4400569781779982
+          ],
+          [
+            " ultimately",
+            0.37186366374199514
+          ],
+          [
+            " primarily",
+            0.1060355375887819
+          ]
+        ],
+        "q8_batch_top3": [
+          [
+            " which",
+            0.3832248727396872
+          ],
+          [
+            " ultimately",
+            0.3697421308281998
+          ],
+          [
+            " primarily",
+            0.1394236901868625
+          ]
+        ],
+        "q8_batch_f32_kv_top3": [
+          [
+            " which",
+            0.3832248727396872
+          ],
+          [
+            " ultimately",
+            0.3697421308281998
+          ],
+          [
+            " primarily",
+            0.1394236901868625
+          ]
+        ]
+      },
+      {
+        "position": 56,
+        "in_prompt": false,
+        "context_token": ")",
+        "bf16_top3": [
+          [
+            " and",
+            0.6310583353042603
+          ],
+          [
+            " from",
+            0.36770856380462646
+          ],
+          [
+            " as",
+            0.0011438661022111773
+          ]
+        ],
+        "int8_top3": [
+          [
+            " and",
+            0.6652704477310181
+          ],
+          [
+            " from",
+            0.3341185748577118
+          ],
+          [
+            " as",
+            0.0005263778148218989
+          ]
+        ],
+        "q8_incremental_top3": [
+          [
+            " from",
+            0.5714651116163235
+          ],
+          [
+            " and",
+            0.42560934084408625
+          ],
+          [
+            " as",
+            0.002812545811148066
+          ]
+        ],
+        "q8_batch_top3": [
+          [
+            " and",
+            0.574957492226287
+          ],
+          [
+            " from",
+            0.4198239081734852
+          ],
+          [
+            " as",
+            0.005101906315558618
+          ]
+        ],
+        "q8_batch_f32_kv_top3": [
+          [
+            " and",
+            0.574957492226287
+          ],
+          [
+            " from",
+            0.4198239081734852
+          ],
+          [
+            " as",
+            0.005101906315558618
+          ]
+        ]
+      }
+    ],
+    "gguf_metadata": {
+      "qwen2moe.block_count": [
+        24
+      ],
+      "qwen2moe.context_length": [
+        32768
+      ],
+      "qwen2moe.embedding_length": [
+        2048
+      ],
+      "qwen2moe.feed_forward_length": [
+        5632
+      ],
+      "qwen2moe.attention.head_count": [
+        16
+      ],
+      "qwen2moe.attention.head_count_kv": [
+        16
+      ],
+      "qwen2moe.rope.freq_base": [
+        1000000.0
+      ],
+      "qwen2moe.attention.layer_norm_rms_epsilon": [
+        9.999999974752427e-07
+      ],
+      "qwen2moe.expert_count": [
+        60
+      ],
+      "qwen2moe.expert_used_count": [
+        4
+      ],
+      "qwen2moe.expert_feed_forward_length": [
+        1408
+      ],
+      "qwen2moe.expert_shared_feed_forward_length": [
+        5632
+      ]
+    },
+    "hf_config": {
+      "rope_theta": 1000000.0,
+      "rms_norm_eps": 1e-06,
+      "num_experts": 60,
+      "num_experts_per_tok": 4,
+      "norm_topk_prob": false,
+      "moe_intermediate_size": 1408
+    }
+  }
+]
