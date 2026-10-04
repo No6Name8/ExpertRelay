@@ -315,6 +315,50 @@ In addition:
   drop at any time; the builder's own allocations stay small. The estimate
   doesn't count mapped file pages.
 
+## The Manager, --auto (Phase 6)
+
+`docs/manager.md`, generated from `benchmarks/results/manager_validation.json`;
+step log in `docs/phase6-progress.md`.
+
+- **What it does:** at startup it measures free RAM, cores and
+  accelerators, the time per expert read on the store (1 and 2 in
+  flight), and the compute per layer over 4 probe tokens. From those it
+  sets the cache size, I/O threads, prefetch mode, layer-0 pinning,
+  backend and precision, each with a recorded reason. It does not yet
+  place experts across devices: one machine only.
+- **Validation (one clean session, 20 runs, tokens identical in all):**
+  - **Fast compute** (fused kernel): --auto chose adaptive, the same mode
+    as the best hand-set config. Mean 2.124 vs 2.018 tok/s (1.05x).
+  - **Slow compute** (old blocked kernel): --auto chose top-8. The best
+    hand-set config was adaptive, 0.917 vs top-8's 0.908 tok/s, a 1%
+    gap smaller than the spread between repeat runs (0.897-0.923). By
+    the rule fixed before the run this is **not a match**. --auto's mean
+    was 0.925 (1.01x the best).
+- **--auto's cache size differs from the hand-set 1.25 GB, so its
+  speed is not a pure test of its policy.** It takes what free RAM
+  allows: 50 experts in its first fast run (2.96 GB free, below the
+  hand-set runs' 144), then 186-201 (more than 144, capped by the 3.6 GB
+  memory budget). Its fast-regime lead comes from its second run (2.32
+  tok/s with 186 experts); its first run, with 50, was slower than the
+  hand-set adaptive runs (1.93). Choosing the cache size is part of its
+  job, but the two parts aren't measured separately.
+- **Free RAM varied during the session** (3.0 -> 4.5 GB). One hand-set run
+  (fast cache-only, round 1) got a lowered cache of 109 experts. It's
+  flagged in the doc.
+- **Startup cost:** profile, probes and decisions take 8-15 s before the
+  first prompt (more with the slow kernel, whose probe tokens take ~1 s
+  each). That time isn't in tokens/s or time to first token.
+- **Thresholds are heuristics, not fitted:** the safety margin (max(512
+  MiB, 5% of RAM)), 2 I/O threads at >= 1.10x gain, top-8 at >= 8 reads
+  per window, the prefetch break-even, and pinning at <= 25% of the
+  cache. Two rules were changed after short --auto smoke runs and before
+  the validation (the read probe's timing, and the prefetch cutoff, which
+  became the break-even rule); both changes are recorded in
+  `docs/phase6-progress.md`.
+- **Live memory budget:** `--budget-file` resizes the cache between
+  tokens, tested for identical tokens. It hasn't been measured on the
+  real model yet: no budget sweep has been recorded.
+
 ## GPTQ int4 on the Chat model (Step B3): faster, still not good enough
 
 `docs/gptq-int4.md`, generated from `benchmarks/results/gptq_quality.json`,
