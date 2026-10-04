@@ -64,14 +64,28 @@ Pass rule (fixed before any result): overall top-1 agreement vs bf16 Chat
   resumed from those files (logs `logs/b3_quality.log`, `_2.log`), so the
   record's peak RSS covers only the second process.
 
+- **6a. GPTQ short trace + its own prefetch calibration** (2026-10-04):
+  24 prompts (4 per category, 128 tokens; paused once at 12/24 at the
+  user's request, resumed without loss). Trace record
+  `benchmarks/results/phase3_trace_run_qwen1.5-moe-a2.7b-chat-int4g128-gptq.json`;
+  calibration `benchmarks/results/prefetch_calibration_qwen1.5-moe-a2.7b-chat-int4g128-gptq.json`
+  (12 tune / 12 test prompts; rank-aware ECE 0.0045 vs int8 Chat's 0.0014
+  from 48/48; top-8 recall 89.2% vs 90.0%).
+- Report code (`bench/gptq_report.py`) committed; the doc waits for the
+  speed run.
+
 ## In progress
 
-- **6a. GPTQ short trace** (24 prompts: 4 per category of phase3.json, 128
-  tokens) for its own prefetch calibration, then the fit. PAUSED at the
-  user's request (2026-10-01) with 12 of 24 prompts finished (each saved
-  as `models/traces/qwen1.5-moe-a2.7b-chat-int4g128-gptq/<id>.done.json`);
-  rerunning the trace command skips them. Report code
-  (`bench/gptq_report.py`) is committed; the doc waits for the speed run.
+- **6b. Speed run**, waiting for the user to run it on a clean machine
+  (browsers and VS Code closed), from a plain PowerShell window:
+
+      cd C:\Users\h\Documents\ExpertRelay
+      python -m expertrelay.bench.gptq_benchmark
+
+  12 runs (int8 and GPTQ x no cache / cache / cache + adaptive prefetch x
+  2 rounds), each saved in `models/work/gptq_speed/runs/` as it finishes.
+  If interrupted, run the same command again in a new clean session: it
+  does only the unfinished runs and records the second session.
 
 ## Next (each command resumes if rerun)
 
